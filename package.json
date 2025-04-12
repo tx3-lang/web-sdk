@@ -1,0 +1,8 @@
+{
+  "name": "tx3",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ]
+}

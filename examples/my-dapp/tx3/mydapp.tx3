@@ -1,0 +1,34 @@
+party Sender;
+party Receiver;
+
+tx transfer_ada(
+    quantity: Int,
+    quantity2: Int,
+) {
+    input source {
+        from: Sender,
+        min_amount: Ada(quantity) + Ada(quantity2),
+    }
+
+    output target {
+        to: Receiver,
+        amount: Ada(quantity),
+    }
+
+    output target2 {
+        to: Receiver,
+        amount: Ada(quantity2),
+    }
+
+
+    output change {
+        to: Sender,
+        amount: source - fees,
+    }
+}
+
+
+
+tx transfer_nft(
+    name: Bytes,
+) {}

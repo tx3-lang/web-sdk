@@ -1,0 +1,21 @@
+[protocol]
+name = "mydapp"
+scope = "txpipe"
+main = "main.tx3"
+
+[registry]
+url = "https://registry.dgram.io"
+
+[devnet]
+type = "dolos"
+config = "dolos.devnet.toml"
+
+[profile.debug]
+devnet = true
+env_file = ".env.debug"
+
+[profile.debug.trp]
+url = "http://localhost:3000/trp"
+
+[profile.debug.env]
+mydapp_address = "0x0000000000000000000000000000000000000000"
