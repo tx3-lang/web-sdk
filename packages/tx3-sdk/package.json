@@ -1,5 +1,5 @@
 {
-  "name": "tx3-trp",
+  "name": "tx3-sdk",
   "version": "0.2.0",
   "description": "TRP Client for the Tx3 Language",
   "main": "dist/index.js",
@@ -34,5 +34,17 @@
   },
   "files": [
     "dist"
-  ]
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./trp": {
+      "import": "./dist/trp.js",
+      "require": "./dist/trp.js",
+      "types": "./dist/trp.d.ts"
+    }
+  }
 }

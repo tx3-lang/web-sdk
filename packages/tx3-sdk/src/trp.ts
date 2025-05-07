@@ -27,7 +27,7 @@ export type ClientOptions = {
   envArgs?: Args;
 };
 
-export class TRPClient {
+export class Client {
   private readonly options: ClientOptions;
 
   constructor(options: ClientOptions) {
