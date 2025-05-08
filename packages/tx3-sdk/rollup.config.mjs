@@ -3,17 +3,24 @@ import commonjs from "@rollup/plugin-commonjs";
 import typescript from "@rollup/plugin-typescript";
 
 export default {
-  input: "src/index.ts",
+  input: {
+    index: "src/index.ts",
+    trp: "src/trp.ts"
+  },
   output: [
     {
-      file: "dist/index.js",
+      dir: "dist",
+      entryFileNames: chunk => chunk.name === 'trp' ? 'trp.js' : 'index.js',
       format: "cjs",
       sourcemap: true,
+      exports: "named",
     },
     {
-      file: "dist/index.esm.js",
+      dir: "dist",
+      entryFileNames: chunk => chunk.name === 'trp' ? 'trp.esm.js' : 'index.esm.js',
       format: "es",
       sourcemap: true,
+      exports: "named",
     },
   ],
   plugins: [resolve(), commonjs(), typescript({ tsconfig: "./tsconfig.json" })],
