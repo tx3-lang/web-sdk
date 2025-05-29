@@ -37,11 +37,17 @@ export class Client {
         this.#client = new TRPClient(options);
     }
 
+    transformArgs(args: Record<string, any>) {
+        return Object.fromEntries(
+            Object.entries(args).map(([k, v]) => [k.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`), v]),
+        );
+    }
+
     {{#each transactions}}
     async {{camelCase function_name}}(args: {{pascalCase params_name}}): Promise<TxEnvelope> {
         return await this.#client.resolve({
             tir: {{constantCase constant_name}},
-            args,
+            args: this.transformArgs(args),
         });
     }
     {{/each}}
