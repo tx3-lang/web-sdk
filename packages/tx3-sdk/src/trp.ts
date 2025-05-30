@@ -1,8 +1,35 @@
+type StringArg = { type: 'string'; value: string };
+type NumberArg = { type: 'number'; value: number };
+type BooleanArg = { type: 'boolean'; value: boolean };
+type NullArg = { type: 'null'; value: null };
+type BytesArg = { type: 'bytes'; value: { content: string, encoding: 'hex' | 'base64' } };
+
+type EncodedArgValue = StringArg | NumberArg | BooleanArg | NullArg | BytesArg;
+
+type EncodedArgs = {
+  [key: string]: EncodedArgValue;
+};
 type ArgValue = string | number | boolean | null | Uint8Array;
 
 type Args = {
-  [key: string]: ArgValue;
-};
+  [key: string]: ArgValue
+}
+function encodeArgValue(val: ArgValue, encoding: BytesArg['value']['encoding'] = 'hex'): EncodedArgValue {
+  if (val === null) return { type: 'null', value: null };
+  if (typeof val === 'string') return { type: 'string', value: val };
+  if (typeof val === 'number') return { type: 'number', value: val };
+  if (typeof val === 'boolean') return { type: 'boolean', value: val };
+  if (val instanceof Uint8Array) {
+    return {
+      type: 'bytes',
+      value: {
+        content:Buffer.from(val).toString(encoding),
+        encoding
+    }
+    };
+  }
+  throw new Error('Unsupported value type');
+}
 
 export type TirEnvelope = {
   version: string;
@@ -35,6 +62,10 @@ export class Client {
   }
 
   async resolve(protoTx: ProtoTx): Promise<TxEnvelope> {
+    const encodedArgs = Object.entries(protoTx.args).reduce((acc, [k, v]) => {
+      acc[k] = encodeArgValue(v);
+      return acc;
+    }, {} as EncodedArgs);
     const response = await fetch(this.options.endpoint, {
       method: "POST",
       headers: {
@@ -46,7 +77,7 @@ export class Client {
         method: "trp.resolve",
         params: {
           tir: protoTx.tir,
-          args: protoTx.args,
+          args: encodedArgs,
           env: this.options.envArgs,
         },
         id: crypto.randomUUID(),
