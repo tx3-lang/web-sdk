@@ -34,6 +34,22 @@ export class Client {
     this.options = options;
   }
 
+  private handleArgs(args: Args): Object {
+    const trpValues = Object.fromEntries(
+      Object.entries(args).map(([key, value]) => {
+        const trpKey = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+
+        if (value instanceof Uint8Array) {
+          return [trpKey, `0x${Buffer.from(value).toString("hex")}`];
+        }
+
+        return [trpKey, value];
+      })
+    );
+
+    return trpValues
+  }
+
   async resolve(protoTx: ProtoTx): Promise<TxEnvelope> {
     const response = await fetch(this.options.endpoint, {
       method: "POST",
@@ -46,7 +62,7 @@ export class Client {
         method: "trp.resolve",
         params: {
           tir: protoTx.tir,
-          args: protoTx.args,
+          args: this.handleArgs(protoTx.args),
           env: this.options.envArgs,
         },
         id: crypto.randomUUID(),
