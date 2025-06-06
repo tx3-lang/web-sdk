@@ -6,25 +6,11 @@ import { globSync } from "glob";
 export interface Tx3PluginOptions {
   // Path to the trix executable
   trixPath?: string;
-  inputFiles?: string[];
 }
 
 interface SanitizedOptions {
   // Path to the trix executable
   trixPath: string;
-  inputFiles: string[];
-}
-
-/**
- * Spread input files into absolute paths
- * @param inputFiles - Input files or glob patterns
- * @returns Absolute paths to the input files
- */
-function spreadInputFiles(inputFiles: string[]) {
-  const projectRoot = process.cwd();
-  return inputFiles
-    .map((pattern) => path.resolve(projectRoot, pattern))
-    .flatMap((pattern) => globSync(pattern));
 }
 
 function generateBindings(options: SanitizedOptions) {
@@ -48,12 +34,10 @@ function generateBindings(options: SanitizedOptions) {
 function sanitizeOptions(options: Tx3PluginOptions): SanitizedOptions {
   const {
     trixPath,
-    inputFiles,
   } = options;
 
   return {
-    trixPath: trixPath || "trix",
-    inputFiles: inputFiles || [],
+    trixPath: trixPath || "trix"
   };
 }
 
@@ -78,7 +62,10 @@ export default function tx3RollupPlugin(options: Tx3PluginOptions): Tx3Plugin {
     // Expose regenerateBindings for the Vite plugin
     regenerateBindings: () => generateBindings(sanitizedOptions),
 
-    filesToWatch: () => spreadInputFiles(sanitizedOptions.inputFiles),
+    filesToWatch() {
+      const projectRoot = process.cwd();
+      return globSync(path.resolve(projectRoot, './*.tx3'))
+    },
   };
 
   return plugin;
