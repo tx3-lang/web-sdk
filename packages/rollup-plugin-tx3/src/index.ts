@@ -31,10 +31,10 @@ function generateBindings(options: SanitizedOptions) {
   }
 }
 
-function sanitizeOptions(options: Tx3PluginOptions): SanitizedOptions {
+function sanitizeOptions(options?: Tx3PluginOptions): SanitizedOptions {
   const {
     trixPath,
-  } = options;
+  } = options || {};
 
   return {
     trixPath: trixPath || "trix"
@@ -46,7 +46,7 @@ type Tx3Plugin = Plugin & {
   filesToWatch: () => string[];
 };
 
-export default function tx3RollupPlugin(options: Tx3PluginOptions): Tx3Plugin {
+export default function tx3RollupPlugin(options?: Tx3PluginOptions): Tx3Plugin {
   const sanitizedOptions = sanitizeOptions(options);
 
   const plugin: Tx3Plugin = {

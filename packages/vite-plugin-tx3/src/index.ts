@@ -5,7 +5,7 @@ import type { Tx3PluginOptions } from "rollup-plugin-tx3";
 
 export type { Tx3PluginOptions };
 
-export default function tx3VitePlugin(options: Tx3PluginOptions): Plugin {
+export default function tx3VitePlugin(options?: Tx3PluginOptions): Plugin {
   const rollupPlugin = tx3RollupPlugin(options);
 
   return {
