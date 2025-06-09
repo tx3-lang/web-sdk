@@ -1,0 +1,52 @@
+{
+  "name": "install-tx3-nextjs",
+  "version": "2.1.0",
+  "description": "CLI tool to create new Next.js projects with TX3 capabilities or add TX3 to existing projects",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "install-tx3": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "tx3",
+    "nextjs",
+    "cli",
+    "installer",
+    "txpipe"
+  ],
+  "author": "TxPipe",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tx3-lang/web-sdk.git",
+    "directory": "packages/install-tx3-nextjs"
+  },
+  "bugs": {
+    "url": "https://github.com/tx3-lang/web-sdk/issues"
+  },
+  "homepage": "https://github.com/tx3-lang/web-sdk/tree/main/packages/install-tx3-nextjs#readme",
+  "dependencies": {
+    "commander": "^11.0.0",
+    "chalk": "^5.3.0",
+    "inquirer": "^9.2.0",
+    "ora": "^7.0.0",
+    "glob": "^10.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/inquirer": "^9.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "dist/**/*",
+    "devnet/**/*"
+  ]
+}

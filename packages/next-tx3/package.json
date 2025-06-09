@@ -1,0 +1,63 @@
+{
+  "name": "next-tx3",
+  "version": "0.1.3",
+  "description": "Next.js plugin for seamless TX3 integration",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "nextjs",
+    "tx3",
+    "plugin",
+    "webpack",
+    "txpipe"
+  ],
+  "author": "TxPipe",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tx3-lang/web-sdk.git",
+    "directory": "packages/next-tx3"
+  },
+  "peerDependencies": {
+    "next": ">=13.0.0",
+    "react": ">=18.0.0"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "chokidar": "^4.0.3",
+    "glob": "^10.3.0",
+    "inquirer": "^9.2.0",
+    "ora": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/chokidar": "^1.7.5",
+    "@types/inquirer": "^9.0.0",
+    "@types/node": "^20.19.0",
+    "@types/react": "^18.0.0",
+    "@types/webpack": "^5.0.0",
+    "next": "^14.2.29",
+    "react": "^18.0.0",
+    "typescript": "^5.0.0",
+    "webpack": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
