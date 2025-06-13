@@ -1,6 +1,6 @@
 {
   "name": "install-tx3-nextjs",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "CLI tool to create new Next.js projects with TX3 capabilities or add TX3 to existing projects",
   "type": "module",
   "main": "dist/index.js",

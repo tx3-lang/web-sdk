@@ -60,7 +60,7 @@ Creates a complete TX3-enabled Next.js project:
 1. **Optionally installs** trix via tx3up (recommended)
 2. **Creates** Next.js project with optimal configuration
 3. **Initializes** shadcn/ui with essential components
-4. **Installs** TX3 packages: `tx3-sdk`, `tx3-trp`, `next-tx3`
+4. **Installs** TX3 packages: `tx3-sdk`, `next-tx3`
 5. **Configures** `next.config.js` with the next-tx3 plugin
 6. **Replaces** `app/page.tsx` with TX3 demo page
 7. **Creates** `.env.local` with TX3 environment variables
@@ -78,7 +78,7 @@ Adds TX3 capabilities to existing Next.js projects:
 
 1. **Validates** your Next.js project
 2. **Optionally installs** trix via tx3up (recommended)
-3. **Installs** TX3 packages: `tx3-sdk`, `tx3-trp`, `next-tx3`
+3. **Installs** TX3 packages: `tx3-sdk`,`next-tx3`
 4. **Updates/creates** `next.config.js` with the next-tx3 plugin
 5. **Optionally sets up** devnet configuration (if trix is available)
 6. **Preserves** all existing functionality

@@ -270,7 +270,7 @@ async function showInitDryRunPreview(projectName: string, trixInstalled: boolean
   
   console.log();
   console.log(chalk.yellow('🔧 TX3 installation:'));
-  console.log('  • Install TX3 packages (tx3-sdk, tx3-trp, next-tx3)');
+  console.log('  • Install TX3 packages (tx3-sdk, next-tx3)');
   console.log('  • Update/create next.config.js with next-tx3 plugin');
   console.log('  • next-tx3 plugin will automatically handle TX3 setup (tsconfig paths, tx3 folder creation)');
   console.log('  • Replace app/page.tsx with TX3 example page');

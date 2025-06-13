@@ -174,7 +174,7 @@ export async function installCommand(options: InstallOptions = {}): Promise<void
     } else {
       console.log(chalk.blue('🔧 Installing TX3 packages...'));
     }
-    const requiredPackages = ['tx3-sdk', 'tx3-trp', 'next-tx3'];
+    const requiredPackages = ['tx3-sdk', 'next-tx3'];
     
     const missingPackages = PackageUtils.getMissingPackages(requiredPackages);
     
@@ -277,7 +277,7 @@ async function showDryRunPreview(): Promise<void> {
   }
   
   console.log(chalk.yellow('📦 Packages to install:'));
-  const requiredPackages = ['tx3-sdk', 'tx3-trp', 'next-tx3'];
+  const requiredPackages = ['tx3-sdk', 'next-tx3'];
   const missingPackages = PackageUtils.getMissingPackages(requiredPackages);
   
   if (missingPackages.length === 0) {

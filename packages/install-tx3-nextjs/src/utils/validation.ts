@@ -122,10 +122,7 @@ export class ProjectValidator {
     ];
 
     const requiredPackages = [
-      'tx3-sdk',
-      'tx3-trp',
-      'nodemon',
-      'concurrently'
+      'tx3-sdk'
     ];
 
     // Check required files
