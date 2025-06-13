@@ -324,4 +324,4 @@ MIT
 
 ## Contributing
 
-Issues and pull requests welcome on [GitHub](https://github.com/txpipe/install-tx3-nextjs).
+Issues and pull requests welcome on [GitHub](https://github.com/tx3-lang/web-sdk).
