@@ -24,10 +24,11 @@ function generateBindings(options: SanitizedOptions) {
   ].join(" ");
 
   try {
-    execSync(command, { stdio: "inherit" });
-  } catch (error) {
-    console.error("Failed to generate TX3 bindings:", error);
-    throw error;
+    // By using inherit, we will have the Error output from Trix (keeping colors and formatting)
+    execSync(command, { stdio: 'inherit' });
+  } catch (_) {
+    // Ignore error param. Show that the command failed
+    console.error("Failed to generate TX3 bindings");
   }
 }
 
