@@ -25,6 +25,14 @@ export default function tx3VitePlugin(options?: Tx3PluginOptions): Plugin {
 
     // Add Vite-specific configuration
     configureServer(server) {
+      // Rollup plugin might not be fully initialized if Trix is not available
+      // In that case, we skip the watcher setup
+      // This allows the plugin to be used without Trix installed, but without HMR support
+      // until Trix is installed
+      if (rollupPlugin.partialInitialized) {
+        return;
+      }
+
       const projectRoot = process.cwd();
 
       const filesToWatch = rollupPlugin.filesToWatch();
