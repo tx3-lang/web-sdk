@@ -1,151 +1,107 @@
 import type { Plugin } from "rollup";
 import { execSync } from "child_process";
 import path from "path";
-import fs from "fs";
 import { globSync } from "glob";
+import chalk from 'chalk';
 
 export interface Tx3PluginOptions {
-  // Path to the tx3-bindgen executable
-  bingenPath?: string;
-  // Input tx3 files or glob patterns
-  inputFiles: string[];
-  // Output directory for generated bindings (relative to project root)
-  outputDir?: string;
-  // Additional arguments to pass to tx3-bindgen
-  bingenArgs?: string[];
-  // TRP endpoint to use for code generation
-  trpEndpoint?: string;
-  // TRP headers to use for code generation
-  trpHeaders?: Record<string, string>;
-  // Env args to use for code generation
-  envArgs?: Record<string, string>;
+  // Path to the trix executable
+  trixPath?: string;
 }
 
 interface SanitizedOptions {
-  bingenPath: string;
-  outputDir: string;
-  inputFiles: string[];
-  bingenArgs: string[];
-  trpEndpoint: string;
-  trpHeaders: Record<string, string>;
-  envArgs: Record<string, string>;
+  // Path to the trix executable
+  trixPath: string;
 }
 
-/**
- * Spread input files into absolute paths
- * @param inputFiles - Input files or glob patterns
- * @returns Absolute paths to the input files
- */
-function spreadInputFiles(inputFiles: string[]) {
-  const projectRoot = process.cwd();
-  return inputFiles
-    .map((pattern) => path.resolve(projectRoot, pattern))
-    .flatMap((pattern) => globSync(pattern));
-}
+export function isTrixAvailable(options: SanitizedOptions) {
+  const { trixPath } = options;
 
-/**
- * Ensure the output directory exists
- * @param options - Plugin options
- */
-function ensureOutputDir(outputDir: string | undefined): string {
-  const outputDirPath = path.resolve(
-    process.cwd(),
-    outputDir || "node_modules/.tx3"
-  );
-
-  fs.mkdirSync(outputDirPath, { recursive: true });
-
-  return outputDirPath;
+  try {
+    execSync(`${trixPath} --version`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    console.log(chalk.red('❌ Trix compiler not found!'));
+    console.log(chalk.yellow('\n📦 To install trix, run these commands:'));
+    console.log(chalk.cyan('\n# Install tx3up installer'));
+    console.log(chalk.white('curl --proto \'=https\' --tlsv1.2 -LsSf https://github.com/tx3-lang/up/releases/latest/download/tx3up-installer.sh | sh'));
+    console.log(chalk.cyan('\n# Install trix'));
+    console.log(chalk.white('tx3up'));
+    console.log(chalk.yellow('\n💡 After installation, restart your development server.'));
+  }
+  return false;
 }
 
 function generateBindings(options: SanitizedOptions) {
   const {
-    bingenPath,
-    outputDir,
-    inputFiles,
-    bingenArgs,
-    trpEndpoint,
-    trpHeaders,
-    envArgs,
+    trixPath,
   } = options;
 
-  const trpHeadersAsCmd: string[] = Object.entries(trpHeaders).map(
-    ([key, value]) => `--trp-header ${key}=${value}`
-  );
-
-  const envArgsAsCmd: string[] = Object.entries(envArgs).map(
-    ([key, value]) => `--env-arg ${key}=${value}`
-  );
-
   const command = [
-    bingenPath,
-    "-i",
-    ...inputFiles,
-    `-o ${outputDir}`,
-    "-t typescript",
-    `--trp-endpoint ${trpEndpoint}`,
-    ...trpHeadersAsCmd,
-    ...envArgsAsCmd,
-    ...bingenArgs,
+    trixPath,
+    "bindgen",
   ].join(" ");
 
   try {
-    execSync(command, { stdio: "inherit" });
-  } catch (error) {
-    console.error("Failed to generate TX3 bindings:", error);
-    throw error;
+    // By using inherit, we will have the Error output from Trix (keeping colors and formatting)
+    execSync(command, { stdio: 'inherit' });
+  } catch (_) {
+    // Ignore error param. Show that the command failed
+    console.error("Failed to generate TX3 bindings");
   }
 }
 
-function sanitizeOptions(options: Tx3PluginOptions): SanitizedOptions {
+function sanitizeOptions(options?: Tx3PluginOptions): SanitizedOptions {
   const {
-    inputFiles,
-    outputDir,
-    bingenPath,
-    bingenArgs,
-    trpEndpoint,
-    trpHeaders,
-    envArgs,
-  } = options;
+    trixPath,
+  } = options || {};
 
   return {
-    inputFiles: spreadInputFiles(inputFiles),
-    outputDir: ensureOutputDir(outputDir),
-    bingenPath: bingenPath || "tx3-bindgen",
-    bingenArgs: bingenArgs || [],
-    trpEndpoint: trpEndpoint || "http://localhost:3000",
-    trpHeaders: trpHeaders || {},
-    envArgs: envArgs || {},
+    trixPath: trixPath || "trix"
   };
 }
 
 type Tx3Plugin = Plugin & {
-  regenerateBindings: () => void;
+  // If we initialized the plugin without trix installed, we can still use the plugin
+  // but we will not be able to generate bindings until trix is installed
   filesToWatch: () => string[];
-};
+} & (
+  | { partialInitialized: false; regenerateBindings: () => void; }
+  | { partialInitialized: true; }
+);
 
-export default function tx3RollupPlugin(options: Tx3PluginOptions): Tx3Plugin {
+export default function tx3RollupPlugin(options?: Tx3PluginOptions): Tx3Plugin {
   const sanitizedOptions = sanitizeOptions(options);
 
-  const plugin: Tx3Plugin = {
+  const trixAvailable = isTrixAvailable(sanitizedOptions);
+
+  const basePlugin: Tx3Plugin = {
     name: "rollup-plugin-tx3",
 
+    partialInitialized: true,
+
+    filesToWatch() {
+      const projectRoot = process.cwd();
+      return globSync(path.resolve(projectRoot, './*.tx3'))
+    },
+  };
+
+  if (!trixAvailable) {
+    console.log(chalk.yellow('\n⚠️  TX3 plugin will continue without compilation until trix is installed.'));
+    return basePlugin;
+  }
+
+  return {
+    ...basePlugin,
+    partialInitialized: false,
     buildStart: () => generateBindings(sanitizedOptions),
 
     // Ensure bindings exist for production builds
     buildEnd() {
-      const files = globSync(`${sanitizedOptions.outputDir}/**/*.ts`);
-
-      if (files.length === 0) {
-        generateBindings(sanitizedOptions);
-      }
+      generateBindings(sanitizedOptions);
     },
 
     // Expose regenerateBindings for the Vite plugin
     regenerateBindings: () => generateBindings(sanitizedOptions),
-
-    filesToWatch: () => spreadInputFiles(sanitizedOptions.inputFiles),
   };
-
-  return plugin;
 }
