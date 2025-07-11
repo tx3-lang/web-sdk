@@ -1,22 +1,31 @@
 {
   "compilerOptions": {
-    "target": "es2018",
+    "target": "es2020",
     "module": "esnext",
-    "lib": ["dom", "esnext"],
+    "lib": ["dom", "esnext", "es2020"],
     "declaration": true,
     "declarationDir": "dist",
+    "declarationMap": true,
     "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "esModuleInterop": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "sourceMap": true,
+    "removeComments": false,
+    "preserveConstEnums": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "tests", "**/*.test.ts", "**/*.spec.ts"]
 }
