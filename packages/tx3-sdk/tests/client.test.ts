@@ -299,8 +299,8 @@ describe('TRP Client Tests', () => {
 
       const body = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
       expect(body.params.args).toEqual({
-        smallNumber: 42,
-        bigNumber: expect.stringMatching(/^0x[0-9a-f]+$/),
+        small_number: 42,
+        big_number: expect.stringMatching(/^0x[0-9a-f]+$/),
         flag: true,
         name: 'test-transaction'
       });

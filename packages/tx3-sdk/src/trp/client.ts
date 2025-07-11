@@ -103,10 +103,13 @@ export class Client {
   /**
    * Convert arguments to JSON format
    */
-  private convertArgsToJson(args: Record<string, any>): Record<string, any> {
+  private convertArgsToJson(args: Record<string, any>, force_snake_case: boolean): Record<string, any> {
     const result: Record<string, any> = {};
     for (const [key, value] of Object.entries(args)) {
-      result[key] = toJson(value);
+      const newKey = force_snake_case
+        ? key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
+        : key;
+      result[newKey] = toJson(value);
     }
     return result;
   }
@@ -116,12 +119,12 @@ export class Client {
    */
   async resolve(protoTx: ProtoTxRequest): Promise<ResolveResponse> {
     // Convert args to JSON format
-    const args = this.convertArgsToJson(protoTx.args);
+    const args = this.convertArgsToJson(protoTx.args, true );
 
     // Convert envArgs to JSON format if they exist
     let envArgs: Record<string, any> | undefined;
     if (this.options.envArgs) {
-      envArgs = this.convertArgsToJson(this.options.envArgs);
+      envArgs = this.convertArgsToJson(this.options.envArgs, false);
     }
 
     // Prepare parameters
