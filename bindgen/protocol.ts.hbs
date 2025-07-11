@@ -44,7 +44,7 @@ export class Client {
     }
 
     {{#each transactions}}
-    async {{camelCase function_name}}(args: {{pascalCase params_name}}): Promise<TxEnvelope> {
+    async {{camelCase function_name}}(args: {{pascalCase params_name}}): Promise<ResolveResponse> {
         return await this.#client.resolve({
             tir: {{constantCase constant_name}},
             args,
