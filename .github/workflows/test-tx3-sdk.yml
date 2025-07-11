@@ -1,0 +1,24 @@
+name: Test tx3-sdk
+
+on:
+  pull_request:
+    paths:
+      - 'packages/tx3-sdk/**'
+
+jobs:
+  test-tx3-sdk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/tx3-sdk
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install
+      - name: Run tests
+        run: npm run test
