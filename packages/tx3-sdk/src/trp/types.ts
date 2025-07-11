@@ -90,8 +90,22 @@ export interface TirInfo {
   encoding: string;
 }
 
-export interface TxEnvelope {
+export interface ResolveResponse {
   tx: string;
+  hash: string;
+}
+
+export interface VKeyWitness {
+  type: 'vkey';
+  key: BytesEnvelope;
+  signature: BytesEnvelope;
+}
+
+export type SubmitWitness = VKeyWitness;
+
+export interface SubmitParams {
+  tx: BytesEnvelope;
+  witnesses: SubmitWitness[];
 }
 
 export interface ClientOptions {

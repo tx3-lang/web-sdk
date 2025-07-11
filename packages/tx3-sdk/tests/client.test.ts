@@ -329,4 +329,84 @@ describe('TRP Client Tests', () => {
       expect(jsonRpcError).toBeInstanceOf(JsonRpcError);
     });
   });
+
+  describe('Submit Method', () => {
+    test('submits transaction successfully', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          jsonrpc: '2.0',
+          result: {},
+          id: 'test'
+        })
+      } as Response);
+
+      const submitParams = {
+        tx: { content: 'deadbeef', encoding: 'hex' as const },
+        witnesses: [{
+          type: 'vkey' as const,
+          key: { content: 'abcdef', encoding: 'hex' as const },
+          signature: { content: '123456', encoding: 'hex' as const }
+        }]
+      };
+
+      await expect(client.submit(submitParams)).resolves.not.toThrow();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://test-endpoint.com/trp',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer test-token'
+          }),
+          body: expect.stringContaining('trp.submit')
+        })
+      );
+    });
+
+    test('handles submit errors', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          jsonrpc: '2.0',
+          error: {
+            message: 'Transaction rejected',
+            data: { code: 'INVALID_TX' }
+          },
+          id: 'test'
+        })
+      } as Response);
+
+      const submitParams = {
+        tx: { content: 'deadbeef', encoding: 'hex' as const },
+        witnesses: [{
+          type: 'vkey' as const,
+          key: { content: 'abcdef', encoding: 'hex' as const },
+          signature: { content: '123456', encoding: 'hex' as const }
+        }]
+      };
+
+      await expect(client.submit(submitParams)).rejects.toThrow(JsonRpcError);
+    });
+
+    test('handles network errors on submit', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error'
+      } as Response);
+
+      const submitParams = {
+        tx: { content: 'deadbeef', encoding: 'hex' as const },
+        witnesses: [{
+          type: 'vkey' as const,
+          key: { content: 'abcdef', encoding: 'hex' as const },
+          signature: { content: '123456', encoding: 'hex' as const }
+        }]
+      };
+
+      await expect(client.submit(submitParams)).rejects.toThrow(StatusCodeError);
+    });
+  });
 });

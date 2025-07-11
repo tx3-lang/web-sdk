@@ -1,18 +1,17 @@
-import { v4 as uuidv4} from 'uuid';
-
 import { 
   ClientOptions, 
   ProtoTxRequest, 
-  TxEnvelope, 
+  ResolveResponse, 
   TrpError, 
   NetworkError, 
   StatusCodeError, 
-  JsonRpcError 
+  JsonRpcError,
+  SubmitParams,
 } from './types.js';
 import { toJson } from './args.js';
 
-interface JsonRpcResponse {
-  result?: TxEnvelope;
+interface JsonRpcResponse<T = any> {
+  result?: T;
   error?: {
     message: string;
     data?: any;
@@ -30,47 +29,35 @@ export class Client {
   }
 
   /**
-   * Resolve a proto transaction to a concrete transaction
+   * Prepare headers for JSON-RPC requests
    */
-  async resolve(protoTx: ProtoTxRequest): Promise<TxEnvelope> {
+  private prepareHeaders(): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      ...this.options.headers,
+    };
+  }
+
+  /**
+   * Handle JSON-RPC request/response cycle
+   */
+  private async makeJsonRpcRequest<T>(
+    method: string,
+    params: any
+  ): Promise<T> {
     try {
-      // Prepare headers
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...this.options.headers,
-      };
-
-      // Convert args to JSON format
-      const args: Record<string, any> = {};
-      for (const [key, value] of Object.entries(protoTx.args)) {
-        args[key] = toJson(value);
-      }
-
-      // Convert envArgs to JSON format if they exist
-      let envArgs: Record<string, any> | undefined;
-      if (this.options.envArgs) {
-        envArgs = {};
-        for (const [key, value] of Object.entries(this.options.envArgs)) {
-          envArgs[key] = toJson(value);
-        }
-      }
-
       // Prepare request body
       const body = {
         jsonrpc: '2.0',
-        method: 'trp.resolve',
-        params: {
-          tir: protoTx.tir,
-          args,
-          env: envArgs,
-        },
-        id: uuidv4(),
+        method,
+        params,
+        id: crypto.randomUUID(),
       };
 
       // Send request
       const response = await fetch(this.options.endpoint, {
         method: 'POST',
-        headers,
+        headers: this.prepareHeaders(),
         body: JSON.stringify(body),
       });
 
@@ -80,7 +67,7 @@ export class Client {
       }
 
       // Parse response
-      const result: JsonRpcResponse = await response.json();
+      const result: JsonRpcResponse<T> = await response.json();
 
       // Handle possible error
       if (result.error) {
@@ -88,11 +75,11 @@ export class Client {
       }
 
       // Return result
-      if (!result.result) {
+      if (result.result === undefined && method !== 'trp.submit') {
         throw new TrpError('No result in response');
       }
 
-      return result.result;
+      return result.result!;
     } catch (error) {
       if (error instanceof TrpError) {
         throw error;
@@ -111,5 +98,46 @@ export class Client {
       // Re-throw other errors
       throw new TrpError(`Unknown error: ${error}`, error);
     }
+  }
+
+  /**
+   * Convert arguments to JSON format
+   */
+  private convertArgsToJson(args: Record<string, any>): Record<string, any> {
+    const result: Record<string, any> = {};
+    for (const [key, value] of Object.entries(args)) {
+      result[key] = toJson(value);
+    }
+    return result;
+  }
+
+  /**
+   * Resolve a proto transaction to a concrete transaction
+   */
+  async resolve(protoTx: ProtoTxRequest): Promise<ResolveResponse> {
+    // Convert args to JSON format
+    const args = this.convertArgsToJson(protoTx.args);
+
+    // Convert envArgs to JSON format if they exist
+    let envArgs: Record<string, any> | undefined;
+    if (this.options.envArgs) {
+      envArgs = this.convertArgsToJson(this.options.envArgs);
+    }
+
+    // Prepare parameters
+    const params = {
+      tir: protoTx.tir,
+      args,
+      env: envArgs,
+    };
+
+    return this.makeJsonRpcRequest<ResolveResponse>('trp.resolve', params);
+  }
+
+  /**
+   * Submit a signed transaction to the network
+   */
+  async submit(params: SubmitParams): Promise<void> {
+    await this.makeJsonRpcRequest<void>('trp.submit', params);
   }
 }
