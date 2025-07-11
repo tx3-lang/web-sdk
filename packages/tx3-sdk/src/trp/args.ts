@@ -265,27 +265,27 @@ export function fromJson(value: any, target: Type): ArgValue {
 
 // Helper functions to create ArgValue instances
 export function createIntArg(value: number | bigint): ArgValue {
-  return { type: 'Int', value: typeof value === 'number' ? BigInt(value) : value };
+  return ArgValue.fromNumber(value);
 }
 
 export function createBoolArg(value: boolean): ArgValue {
-  return { type: 'Bool', value };
+  return ArgValue.fromBool(value);
 }
 
 export function createStringArg(value: string): ArgValue {
-  return { type: 'String', value };
+  return ArgValue.fromString(value);
 }
 
 export function createBytesArg(value: Uint8Array): ArgValue {
-  return { type: 'Bytes', value };
+  return ArgValue.fromBytes(value);
 }
 
 export function createAddressArg(value: Uint8Array): ArgValue {
-  return { type: 'Address', value };
+  return ArgValue.fromAddress(value);
 }
 
 export function createUtxoRefArg(txid: Uint8Array, index: number): ArgValue {
-  return { type: 'UtxoRef', value: { txid, index } };
+  return ArgValue.fromUtxoRef({ txid, index });
 }
 
 // Export utility functions
