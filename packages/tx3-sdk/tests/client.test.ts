@@ -6,7 +6,7 @@ import {
   StatusCodeError, 
   JsonRpcError,
   ProtoTxRequest,
-  TxEnvelope 
+  ResolveResponse, 
 } from '../src/trp/types';
 
 // Mock fetch globally for Node.js environment
@@ -52,8 +52,9 @@ describe('TRP Client Tests', () => {
 
   describe('Successful Resolution', () => {
     test('resolves proto transaction successfully', async () => {
-      const mockResponse: TxEnvelope = {
-        tx: '84a400d90102838258201234567890abcdef'
+      const mockResponse: ResolveResponse = {
+        tx: '84a400d90102838258201234567890abcdef',
+        hash: ''
       };
 
       mockFetch.mockResolvedValueOnce({
