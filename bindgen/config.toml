@@ -1,0 +1,9 @@
+all = [
+  "package.json.hbs",
+  "protocol.ts.hbs",
+  "tsconfig.json.hbs"
+]
+
+standalone = [
+  "protocol.ts.hbs"
+]
