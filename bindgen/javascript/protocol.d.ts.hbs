@@ -1,0 +1,38 @@
+{{#if options.typedef}}
+import type { ArgValue, ClientOptions, ResolveResponse, SubmitParams } from "tx3-sdk/trp";
+
+// Exported Constants
+export declare const DEFAULT_TRP_ENDPOINT: string;
+export declare const DEFAULT_HEADERS: Record<string, string>;
+export declare const DEFAULT_ENV_ARGS: Record<string, ArgValue>;
+
+// IR Structure
+export interface IRStruct {
+    bytecode: string;
+    encoding: "hex" | "base64";
+    version: string;
+}
+
+// Params
+{{#each transactions}}
+export interface {{pascalCase params_name}} {
+{{#each parameters}}
+    {{camelCase name}}: ArgValue;
+{{/each}}
+}
+export declare const {{constantCase constant_name}}: IRStruct;
+{{/each}}
+
+// Client Class
+export declare class Client {
+    constructor(options: ClientOptions);
+
+    {{#each transactions}}
+    {{camelCase function_name}}(args: {{pascalCase params_name}}): Promise<ResolveResponse>;
+
+    {{/each}}
+    submit(params: SubmitParams): Promise<void>;
+}
+
+export declare const protocol: Client;
+{{/if}}

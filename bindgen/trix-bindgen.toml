@@ -1,1 +1,6 @@
-protocol_files = ["protocol.ts.hbs"]
+default_path = "typescript/"
+
+include = [
+  { name = "options.output", value = "typescript", path = "typescript/" },
+  { name = "options.output", value = "javascript", path = "javascript/" },
+]
