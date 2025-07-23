@@ -8,9 +8,6 @@ on:
 jobs:
   test-tx3-sdk:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/tx3-sdk
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,3 +19,4 @@ jobs:
         run: npm install
       - name: Run tests
         run: npm run test
+        working-directory: packages/tx3-sdk
