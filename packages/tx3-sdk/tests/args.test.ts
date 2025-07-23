@@ -88,6 +88,23 @@ describe('Args Conversion Tests', () => {
       roundTripTest(createIntArg(minI128), Type.Int);
       roundTripTest(createIntArg(maxI128), Type.Int);
     });
+
+    // Tests with native bigint types (serialized as strings)
+    test('round trip native bigint via hex string', () => {
+      const bigIntValue = 123456789012345n;
+      const arg = createIntArg(bigIntValue);
+      jsonToValueTest(bigIntValue, Type.Int, arg);
+    });
+
+    test('round trip native number', () => {
+      const numberValue = 42;
+      jsonToValueTest(numberValue, Type.Int, createIntArg(numberValue));
+    });
+
+    test('round trip negative native number', () => {
+      const negativeValue = -999;
+      jsonToValueTest(negativeValue, Type.Int, createIntArg(negativeValue));
+    });
   });
 
   describe('Boolean Tests', () => {
@@ -108,11 +125,60 @@ describe('Args Conversion Tests', () => {
       jsonToValueTest('true', Type.Bool, createBoolArg(true));
       jsonToValueTest('false', Type.Bool, createBoolArg(false));
     });
+
+    // Tests with native boolean types
+    test('round trip native boolean true', () => {
+      const boolValue = true;
+      jsonToValueTest(boolValue, Type.Bool, createBoolArg(boolValue));
+    });
+
+    test('round trip native boolean false', () => {
+      const boolValue = false;
+      jsonToValueTest(boolValue, Type.Bool, createBoolArg(boolValue));
+    });
+
+    test('compare createBoolArg vs native boolean handling', () => {
+      const nativeTrue = true;
+      const nativeFalse = false;
+      
+      const argTrue = createBoolArg(nativeTrue);
+      const argFalse = createBoolArg(nativeFalse);
+      
+      // Both should create the same ArgValue structure
+      expect(argTrue.type).toBe('Bool');
+      expect(argTrue.value).toBe(true);
+      expect(argFalse.type).toBe('Bool');
+      expect(argFalse.value).toBe(false);
+    });
   });
 
   describe('String Tests', () => {
     test('round trip string', () => {
       roundTripTest(createStringArg('hello world'), Type.Undefined);
+    });
+
+    // Tests with native string types
+    test('round trip native string', () => {
+      const stringValue = 'hello native world';
+      jsonToValueTest(stringValue, Type.Undefined, createStringArg(stringValue));
+    });
+
+    test('round trip empty native string', () => {
+      const emptyString = '';
+      jsonToValueTest(emptyString, Type.Undefined, createStringArg(emptyString));
+    });
+
+    test('round trip native string with special chars', () => {
+      const specialString = 'Hello 🌟 World! @#$%^&*()';
+      jsonToValueTest(specialString, Type.Undefined, createStringArg(specialString));
+    });
+
+    test('compare createStringArg vs native string handling', () => {
+      const nativeString = 'test string';
+      const arg = createStringArg(nativeString);
+      
+      expect(arg.type).toBe('String');
+      expect(arg.value).toBe(nativeString);
     });
   });
 
@@ -146,6 +212,43 @@ describe('Args Conversion Tests', () => {
       const hexString = '0x68656c6c6f'; // "hello" in hex with 0x prefix
       const expectedBytes = new TextEncoder().encode('hello');
       jsonToValueTest(hexString, Type.Bytes, createBytesArg(expectedBytes));
+    });
+
+    // Tests with native Uint8Array types (serialized as hex strings)
+    test('round trip native Uint8Array via hex string', () => {
+      const nativeBytes = new Uint8Array([0xFF, 0x00, 0xAB, 0xCD, 0xEF]);
+      const arg = createBytesArg(nativeBytes);
+      const json = toJson(arg); // This will be a hex string
+      jsonToValueTest(json, Type.Bytes, arg);
+    });
+
+    test('round trip empty native Uint8Array via hex string', () => {
+      const emptyBytes = new Uint8Array([]);
+      const arg = createBytesArg(emptyBytes);
+      const json = toJson(arg); // This will be "0x"
+      jsonToValueTest(json, Type.Bytes, arg);
+    });
+
+    test('compare createBytesArg vs native Uint8Array handling', () => {
+      const nativeBytes = new Uint8Array([1, 2, 3, 4, 5]);
+      const arg = createBytesArg(nativeBytes);
+      
+      expect(arg.type).toBe('Bytes');
+      expect(arg.value).toEqual(nativeBytes);
+    });
+
+    test('round trip text encoded as native Uint8Array', () => {
+      const text = 'Hello World!';
+      const nativeBytes = new TextEncoder().encode(text);
+      const arg = createBytesArg(nativeBytes);
+      
+      roundTripTest(arg, Type.Bytes);
+      
+      // Verify we can decode it back
+      if (arg.type === 'Bytes') {
+        const decoded = new TextDecoder().decode(arg.value);
+        expect(decoded).toBe(text);
+      }
     });
   });
 
@@ -212,6 +315,113 @@ describe('Args Conversion Tests', () => {
     test('infer string from string', () => {
       jsonToValueTest('hello', Type.Undefined, createStringArg('hello'));
       jsonToValueTest('', Type.Undefined, createStringArg(''));
+    });
+  });
+
+  describe('Native Types vs CreateArg Functions Comparison', () => {
+    test('native bigint vs createIntArg with bigint (via serialization)', () => {
+      const nativeBigInt = 123456789012345n;
+      const createdArg = createIntArg(nativeBigInt);
+      
+      jsonToValueTest(nativeBigInt, Type.Int, createdArg);      
+      roundTripTest(createdArg, Type.Int);
+    });
+
+    test('native number vs createIntArg with number', () => {
+      const nativeNumber = 42;
+      const createdArg = createIntArg(nativeNumber);
+      
+      jsonToValueTest(nativeNumber, Type.Int, createdArg);
+      roundTripTest(createdArg, Type.Int);
+    });
+
+    test('native boolean vs createBoolArg', () => {
+      const nativeBool = true;
+      const createdArg = createBoolArg(nativeBool);
+      
+      jsonToValueTest(nativeBool, Type.Bool, createdArg);
+      roundTripTest(createdArg, Type.Bool);
+    });
+
+    test('native string vs createStringArg', () => {
+      const nativeString = 'test string';
+      const createdArg = createStringArg(nativeString);
+      
+      jsonToValueTest(nativeString, Type.Undefined, createdArg);
+      roundTripTest(createdArg, Type.Undefined);
+    });
+
+    test('native Uint8Array vs createBytesArg (via serialization)', () => {
+      const nativeBytes = new Uint8Array([0xDE, 0xAD, 0xBE, 0xEF]);
+      const createdArg = createBytesArg(nativeBytes);
+      
+      jsonToValueTest(nativeBytes, Type.Bytes, createdArg);
+      roundTripTest(createdArg, Type.Bytes);
+    });
+
+    test('native types in type inference (Type.Undefined)', () => {
+      // Test that JSON-compatible native types are properly inferred when using Type.Undefined
+      jsonToValueTest(999, Type.Undefined, createIntArg(999));
+      jsonToValueTest(true, Type.Undefined, createBoolArg(true));
+      jsonToValueTest(false, Type.Undefined, createBoolArg(false));
+      jsonToValueTest('auto-infer', Type.Undefined, createStringArg('auto-infer'));
+    });
+
+    test('edge cases with native types', () => {
+      // Zero values
+      jsonToValueTest(0, Type.Int, createIntArg(0));
+
+      // Empty values
+      jsonToValueTest('', Type.Undefined, createStringArg(''));
+
+      // Test serialized empty bytes
+      const emptyBytes = new Uint8Array([]);
+      const emptyArg = createBytesArg(emptyBytes);
+      jsonToValueTest(emptyBytes, Type.Bytes, emptyArg);
+
+      // Large numbers
+      const largeNumber = Number.MAX_SAFE_INTEGER;
+      jsonToValueTest(largeNumber, Type.Int, createIntArg(largeNumber));
+
+      // Test serialized large bigint
+      const largeBigInt = BigInt(Number.MAX_SAFE_INTEGER) * 2n;
+      const largeBigIntArg = createIntArg(largeBigInt);
+      jsonToValueTest(largeBigInt, Type.Int, largeBigIntArg);
+    });
+
+    test('direct native type creation vs factory functions', () => {
+      // Test that creating ArgValues directly with native types produces same results as factory functions
+      const testCases = [
+        { native: 42, createFn: () => createIntArg(42) },
+        { native: true, createFn: () => createBoolArg(true) },
+        { native: false, createFn: () => createBoolArg(false) },
+        { native: 'hello', createFn: () => createStringArg('hello') },
+      ];
+
+      testCases.forEach(({ native, createFn }) => {
+        const factoryResult = createFn();
+        expect(factoryResult.value).toEqual(
+          typeof native === 'number' ? BigInt(native) : native
+        );
+      });
+    });
+
+    test('bigint handling in different ranges', () => {
+      const testCases = [
+        0n,
+        1n,
+        -1n,
+        BigInt(Number.MAX_SAFE_INTEGER),
+        BigInt(Number.MAX_SAFE_INTEGER) + 1n,
+        BigInt('12345678901234567890'),
+      ];
+
+      testCases.forEach(bigIntValue => {
+        const arg = createIntArg(bigIntValue);
+        const json = toJson(arg);
+        const restored = fromJson(json, Type.Int);
+        expect(argValueEquals(arg, restored)).toBe(true);
+      });
     });
   });
 

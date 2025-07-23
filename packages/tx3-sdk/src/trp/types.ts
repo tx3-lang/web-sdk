@@ -28,6 +28,7 @@ export type ArgValue =
   | { type: 'UtxoSet'; value: UtxoSet }
   | { type: 'UtxoRef'; value: UtxoRef };
 
+
 // Factory functions to create ArgValue
 export const ArgValue = {
   fromString(value: string): ArgValue {
@@ -67,6 +68,33 @@ export const ArgValue = {
     if (value instanceof Set) return this.fromUtxoSet(value as UtxoSet);
     if (typeof value === 'object' && value !== null && 'txid' in value) return this.fromUtxoRef(value as UtxoRef);
     throw new Error(`Cannot convert value to ArgValue: ${value}`);
+  },
+
+  is(value: unknown): value is ArgValue {
+    if (!value || typeof value !== 'object' || !('type' in value)) {
+      return false;
+    }
+
+    const obj = value as ArgValue;
+
+    switch (obj.type) {
+      case 'Int':
+        return typeof obj.value === 'bigint';
+      case 'Bool':
+        return typeof obj.value === 'boolean';
+      case 'String':
+        return typeof obj.value === 'string';
+      case 'Bytes':
+        return obj.value instanceof Uint8Array;
+      case 'Address':
+        return obj.value instanceof Uint8Array;
+      case 'UtxoSet':
+        return obj.value instanceof Set;
+      case 'UtxoRef':
+        return typeof obj.value === 'object' && obj.value !== null && 'txid' in obj.value;
+      default:
+        return false;
+    }
   }
 };
 
@@ -116,7 +144,7 @@ export interface ClientOptions {
 
 export interface ProtoTxRequest {
   tir: TirInfo;
-  args: Record<string, ArgValue>;
+  args: Record<string, ArgValue | unknown>;
 }
 
 export class ArgValueError extends Error {

@@ -7,6 +7,7 @@ import {
   StatusCodeError, 
   JsonRpcError,
   SubmitParams,
+  ArgValue,
 } from './types.js';
 import { toJson } from './args.js';
 
@@ -109,7 +110,7 @@ export class Client {
       const newKey = force_snake_case
         ? key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
         : key;
-      result[newKey] = toJson(value);
+      result[newKey] = toJson(ArgValue.is(value) ? value : ArgValue.from(value));
     }
     return result;
   }
