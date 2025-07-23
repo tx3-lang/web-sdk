@@ -26,7 +26,7 @@ export const DEFAULT_ENV_ARGS = {
 {{#each transactions}}
 export type {{pascalCase params_name}} = {
 {{#each parameters}}
-    {{camelCase name}}: ArgValue;
+    {{camelCase name}}: ArgValue | {{typeFor type_name "typescript"}}; // {{type_name}}
 {{/each}}
 }
 
