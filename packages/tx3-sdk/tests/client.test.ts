@@ -307,6 +307,178 @@ describe('TRP Client Tests', () => {
     });
   });
 
+  describe('Native Types Integration Tests', () => {
+    test('resolves proto transaction with native number arguments', async () => {
+      const mockResponse: ResolveResponse = {
+        tx: '84a400d90102838258201234567890abcdef',
+        hash: ''
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          jsonrpc: '2.0',
+          result: mockResponse,
+          id: 'test-id'
+        })
+      } as Response);
+
+      const protoTx: ProtoTxRequest = {
+        tir: {
+          version: '1.0',
+          bytecode: 'test-bytecode',
+          encoding: 'base64'
+        },
+        args: {
+          // Using native numbers instead of createIntArg
+          amount: 100_000_000,
+          fee: 200000,
+          recipient: 'addr1...',
+          active: true,
+        }
+      };
+
+      const result = await client.resolve(protoTx);
+
+      expect(result).toEqual(mockResponse);
+      
+      const body = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
+      expect(body.params.args).toEqual({
+        amount: 100000000,
+        fee: 200000,
+        recipient: 'addr1...',
+        active: true
+      });
+    });
+
+    test('resolves with native bigint values', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          jsonrpc: '2.0',
+          result: { tx: 'mock' },
+          id: 'test'
+        })
+      } as Response);
+
+      const largeBigInt = BigInt('999999999999999999999999');
+      const protoTx: ProtoTxRequest = {
+        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        args: {
+          largeAmount: largeBigInt,
+          regularAmount: 1000,
+          enabled: true,
+        }
+      };
+
+      await client.resolve(protoTx);
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
+      expect(body.params.args.large_amount).toMatch(/^0x[0-9a-f]+$/); // Large numbers become hex
+      expect(body.params.args.regular_amount).toBe(1000); // Small numbers stay as numbers
+      expect(body.params.args.enabled).toBe(true);
+    });
+
+    test('resolves with native boolean values', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          jsonrpc: '2.0',
+          result: { tx: 'mock' },
+          id: 'test'
+        })
+      } as Response);
+
+      const protoTx: ProtoTxRequest = {
+        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        args: {
+          isActive: true,
+          isCompleted: false,
+          amount: 500,
+        }
+      };
+
+      await client.resolve(protoTx);
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
+      expect(body.params.args).toEqual({
+        is_active: true,
+        is_completed: false,
+        amount: 500
+      });
+    });
+
+    test('resolves with native string values', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          jsonrpc: '2.0',
+          result: { tx: 'mock' },
+          id: 'test'
+        })
+      } as Response);
+
+      const protoTx: ProtoTxRequest = {
+        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        args: {
+          recipient: 'addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80d8dh',
+          memo: 'Payment for services',
+          emptyField: '',
+        }
+      };
+
+      await client.resolve(protoTx);
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
+      expect(body.params.args).toEqual({
+        recipient: 'addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80d8dh',
+        memo: 'Payment for services',
+        empty_field: ''
+      });
+    });
+
+    test('handles mixed native and factory function arguments', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          jsonrpc: '2.0',
+          result: { tx: 'mock' },
+          id: 'test'
+        })
+      } as Response);
+
+      const protoTx: ProtoTxRequest = {
+        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        args: {
+          // Mix of factory functions and native values (though all go through factory functions for now)
+          nativeNumber: 42,
+          nativeBigInt: BigInt('999999999999999999'),
+          nativeBool: true,
+          nativeString: 'test-value',
+          zeroValue: 0,
+          emptyString: '',
+        }
+      };
+
+      await client.resolve(protoTx);
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
+      expect(body.params.args).toEqual({
+        native_number: 42,
+        native_big_int: expect.stringMatching(/^0x[0-9a-f]+$/),
+        native_bool: true,
+        native_string: 'test-value',
+        zero_value: 0,
+        empty_string: ''
+      });
+    });
+  });
+
   describe('Error Type Inheritance', () => {
     test('error types inherit from base classes correctly', () => {
       const trpError = new TrpError('test message');

@@ -78,6 +78,14 @@ function bigintToValue(i: bigint): any {
   }
 }
 
+function checkBigintInRange(x: bigint) {
+  if (x < MIN_I128 || x > MAX_I128) {
+    throw new ArgValueError(`Number is outside i128 range: ${x}`);
+  }
+
+  return true;
+}
+
 function numberToBigint(x: number): bigint {
   if (!Number.isInteger(x)) {
     throw new ArgValueError(`Number is not an integer: ${x}`);
@@ -85,9 +93,7 @@ function numberToBigint(x: number): bigint {
 
   const bigintValue = BigInt(x);
   
-  if (bigintValue < MIN_I128 || bigintValue > MAX_I128) {
-    throw new ArgValueError(`Number is outside i128 range: ${x}`);
-  }
+  checkBigintInRange(bigintValue);
   
   return bigintValue;
 }
@@ -113,8 +119,12 @@ function stringToBigint(s: string): bigint {
 }
 
 function valueToBigint(value: any): bigint {
+  console.log(value, typeof value);
   if (typeof value === 'number') {
     return numberToBigint(value);
+  } else if (typeof value === 'bigint') {
+    checkBigintInRange(value);
+    return value;
   } else if (typeof value === 'string') {
     return stringToBigint(value);
   } else if (value === null) {
@@ -141,7 +151,9 @@ function valueToBool(value: any): boolean {
 }
 
 function valueToBytes(value: any): Uint8Array {
-  if (typeof value === 'string') {
+  if (value instanceof Uint8Array) {
+    return value;
+  } else if (typeof value === 'string') {
     return hexToBytes(value);
   } else if (value && typeof value === 'object' && 'content' in value && 'encoding' in value) {
     const envelope = value as BytesEnvelope;
