@@ -1,6 +1,6 @@
 {
   "name": "tx3-sdk",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "TRP Client for the Tx3 Language",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
