@@ -6,6 +6,14 @@ import {
     type ClientOptions,
     type SubmitParams,
     type ResolveResponse,
+    type ArgValueInt,
+    type ArgValueBool,
+    type ArgValueString,
+    type ArgValueBytes,
+    type ArgValueAddress,
+    type ArgValueUtxoSet,
+    type ArgValueUtxoRef,
+    CustomArgValue,
 } from "tx3-sdk/trp";
 
 
@@ -23,10 +31,23 @@ export const DEFAULT_ENV_ARGS = {
 {{/each}}
 };
 
+// Custom type definitions
+{{#each transactions}}
+{{#each parameters}}
+{{#if (hasCustomDef this)}}
+{{#if (getCustomTypeName this)}}
+// Custom type definition for {{getCustomTypeName this}}
+export type {{getCustomTypeNamePascal this}} = {{generateCustomType this}};
+
+{{/if}}
+{{/if}}
+{{/each}}
+{{/each}}
+
 {{#each transactions}}
 export type {{pascalCase params_name}} = {
 {{#each parameters}}
-    {{camelCase name}}: ArgValue | {{typeFor type_name "typescript"}}; // {{type_name}}
+    {{camelCase name}}: {{typeFor type_name "typescript"}}; // {{type_name}}
 {{/each}}
 }
 

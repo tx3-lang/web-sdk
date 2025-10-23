@@ -1,15 +1,16 @@
-import { 
-  ClientOptions, 
-  ProtoTxRequest, 
-  ResolveResponse, 
-  TrpError, 
-  NetworkError, 
-  StatusCodeError, 
-  JsonRpcError,
-  SubmitParams,
+import { toJson } from "./args.js";
+import {
   ArgValue,
-} from './types.js';
-import { toJson } from './args.js';
+  ClientOptions,
+  CustomArgValue,
+  JsonRpcError,
+  NetworkError,
+  ProtoTxRequest,
+  ResolveResponse,
+  StatusCodeError,
+  SubmitParams,
+  TrpError,
+} from "./types.js";
 
 interface JsonRpcResponse<T = any> {
   result?: T;
@@ -34,7 +35,7 @@ export class Client {
    */
   private prepareHeaders(): Record<string, string> {
     return {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...this.options.headers,
     };
   }
@@ -42,14 +43,11 @@ export class Client {
   /**
    * Handle JSON-RPC request/response cycle
    */
-  private async makeJsonRpcRequest<T>(
-    method: string,
-    params: any
-  ): Promise<T> {
+  private async makeJsonRpcRequest<T>(method: string, params: any): Promise<T> {
     try {
       // Prepare request body
       const body = {
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         method,
         params,
         id: crypto.randomUUID(),
@@ -57,7 +55,7 @@ export class Client {
 
       // Send request
       const response = await fetch(this.options.endpoint, {
-        method: 'POST',
+        method: "POST",
         headers: this.prepareHeaders(),
         body: JSON.stringify(body),
       });
@@ -76,8 +74,8 @@ export class Client {
       }
 
       // Return result
-      if (result.result === undefined && method !== 'trp.submit') {
-        throw new TrpError('No result in response');
+      if (result.result === undefined && method !== "trp.submit") {
+        throw new TrpError("No result in response");
       }
 
       return result.result!;
@@ -85,17 +83,17 @@ export class Client {
       if (error instanceof TrpError) {
         throw error;
       }
-      
+
       // Handle fetch errors
-      if (error instanceof TypeError && error.message.includes('fetch')) {
+      if (error instanceof TypeError && error.message.includes("fetch")) {
         throw new NetworkError(error.message, error);
       }
-      
+
       // Handle JSON parsing errors
       if (error instanceof SyntaxError) {
         throw new TrpError(`Failed to parse response: ${error.message}`, error);
       }
-      
+
       // Re-throw other errors
       throw new TrpError(`Unknown error: ${error}`, error);
     }
@@ -104,13 +102,36 @@ export class Client {
   /**
    * Convert arguments to JSON format
    */
-  private convertArgsToJson(args: Record<string, any>, force_snake_case: boolean): Record<string, any> {
+  private convertArgsToJson(
+    args: Record<string, any>,
+    force_snake_case: boolean,
+  ): Record<string, any> {
     const result: Record<string, any> = {};
     for (const [key, value] of Object.entries(args)) {
       const newKey = force_snake_case
         ? key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
         : key;
-      result[newKey] = toJson(ArgValue.is(value) ? value : ArgValue.from(value));
+      // Check if it's already an ArgValue, otherwise convert it
+      if (
+        value &&
+        typeof value === "object" &&
+        "type" in value &&
+        "value" in value
+      ) {
+        // It's already an ArgValue (either primitive or custom)
+        result[newKey] = toJson(value);
+      } else if (value instanceof CustomArgValue) {
+        // It's a CustomArgValue
+        result[newKey] = toJson(value);
+      } else {
+        // Convert primitive value to ArgValue
+        try {
+          result[newKey] = toJson(ArgValue.from(value));
+        } catch {
+          // If conversion fails, use the value as-is
+          result[newKey] = value;
+        }
+      }
     }
     return result;
   }
@@ -120,7 +141,7 @@ export class Client {
    */
   async resolve(protoTx: ProtoTxRequest): Promise<ResolveResponse> {
     // Convert args to JSON format
-    const args = this.convertArgsToJson(protoTx.args, true );
+    const args = this.convertArgsToJson(protoTx.args, true);
 
     // Convert envArgs to JSON format if they exist
     let envArgs: Record<string, any> | undefined;
@@ -135,13 +156,13 @@ export class Client {
       env: envArgs,
     };
 
-    return this.makeJsonRpcRequest<ResolveResponse>('trp.resolve', params);
+    return this.makeJsonRpcRequest<ResolveResponse>("trp.resolve", params);
   }
 
   /**
    * Submit a signed transaction to the network
    */
   async submit(params: SubmitParams): Promise<void> {
-    await this.makeJsonRpcRequest<void>('trp.submit', params);
+    await this.makeJsonRpcRequest<void>("trp.submit", params);
   }
 }
