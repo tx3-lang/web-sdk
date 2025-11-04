@@ -28,8 +28,8 @@ function hexToBytes(s: string): Uint8Array {
   const bytes = new Uint8Array(cleanHex.length / 2);
   for (let i = 0; i < cleanHex.length; i += 2) {
     const hexByte = cleanHex.substring(i, i + 2);
-    const byteValue = parseInt(hexByte, 16);
-    if (isNaN(byteValue)) {
+    const byteValue = Number.parseInt(hexByte, 16);
+    if (Number.isNaN(byteValue)) {
       throw new ArgValueError(`Invalid hex string: ${s}`);
     }
     bytes[i / 2] = byteValue;
@@ -51,7 +51,7 @@ function base64ToBytes(s: string): Uint8Array {
       bytes[i] = binary.charCodeAt(i);
     }
     return bytes;
-  } catch (error) {
+  } catch {
     throw new ArgValueError(`Invalid base64: ${s}`);
   }
 }
@@ -224,9 +224,9 @@ function stringToUtxoRef(s: string): UtxoRef {
 
   const [txidHex, indexStr] = parts;
   const txid = hexToBytes(txidHex);
-  const index = parseInt(indexStr, 10);
+  const index = Number.parseInt(indexStr, 10);
 
-  if (isNaN(index)) {
+  if (Number.isNaN(index)) {
     throw new ArgValueError(`Invalid utxo ref: ${s}`);
   }
 
@@ -246,13 +246,12 @@ function utxoRefToValue(x: UtxoRef): string {
 }
 
 export function toJson(value: PrimitiveArgValue | CustomArgValue): any {
-  // recursively turn fields into json
+  // Handle CustomArgValue with ordered fields
   if (value instanceof CustomArgValue) {
-    const result: Record<string, any> = {};
-    for (const [key, val] of Object.entries(value.value)) {
-      result[key] = toJson(val);
-    }
-    return result;
+    return {
+      constructor: value.constructorIndex,
+      fields: value.fields.map((field) => toJson(field)),
+    };
   }
 
   // Handle PrimitiveArgValue
@@ -301,7 +300,6 @@ export function fromJson(value: any, target: Type): PrimitiveArgValue {
   }
 }
 
-// Helper functions to create ArgValue instances
 export function createIntArg(value: number | bigint): PrimitiveArgValue {
   return ArgValue.fromNumber(value);
 }
@@ -329,11 +327,60 @@ export function createUtxoRefArg(
   return ArgValue.fromUtxoRef({ txid, index });
 }
 
-export function createCustomArg<T extends Record<string, any>>(
-  value: T,
-): CustomArgValue<T> {
-  return CustomArgValue.from<T>(value);
+/**
+ * Create a CustomArgValue with a constructor index and ordered fields
+ * @param constructorIndex - The constructor index (positive integer)
+ * @param fields - Ordered array of ArgValue fields
+ */
+export function createCustomArg<TFields extends readonly ArgValue[]>(
+  constructorIndex: number,
+  fields: TFields,
+): CustomArgValue<TFields> {
+  return new CustomArgValue(constructorIndex, fields);
 }
 
-// Export utility functions
-export { hexToBytes, bytesToHex };
+/**
+ * Parse a custom type from JSON
+ * This expects the JSON to have the format: {constructor: number, fields: array}
+ */
+function valueToCustom(value: any): CustomArgValue {
+  if (!value || typeof value !== "object") {
+    throw new ArgValueError(`Value is not a custom type object: ${value}`);
+  }
+
+  if (!("constructor" in value)) {
+    throw new ArgValueError("Custom type missing constructor field");
+  }
+
+  const constructorIndex = value.constructor;
+  if (!Number.isInteger(constructorIndex) || constructorIndex < 0) {
+    throw new ArgValueError(
+      "Custom type constructor must be a non-negative integer",
+    );
+  }
+
+  if (!("fields" in value)) {
+    throw new ArgValueError("Custom type missing fields array");
+  }
+
+  if (!Array.isArray(value.fields)) {
+    throw new ArgValueError("Custom type fields must be an array");
+  }
+
+  const fields: ArgValue[] = value.fields.map((fieldValue: any) => {
+    if (
+      fieldValue &&
+      typeof fieldValue === "object" &&
+      "constructor" in fieldValue &&
+      "fields" in fieldValue
+    ) {
+      return valueToCustom(fieldValue);
+    }
+
+    return fromJson(fieldValue, Type.Undefined);
+  });
+
+  return new CustomArgValue(constructorIndex, fields);
+}
+
+export { hexToBytes, bytesToHex, valueToCustom };

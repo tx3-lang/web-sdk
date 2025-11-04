@@ -69,7 +69,6 @@ export const ArgValue = {
     return { type: "UtxoRef", value };
   },
 
-  // Generic from function for convenience
   from(
     value: string | number | bigint | boolean | Uint8Array | UtxoSet | UtxoRef,
   ): PrimitiveArgValue {
@@ -78,9 +77,9 @@ export const ArgValue = {
       return this.fromNumber(value);
     if (typeof value === "boolean") return this.fromBool(value);
     if (value instanceof Uint8Array) return this.fromBytes(value);
-    if (value instanceof Set) return this.fromUtxoSet(value as UtxoSet);
+    if (value instanceof Set) return this.fromUtxoSet(value);
     if (typeof value === "object" && value !== null && "txid" in value)
-      return this.fromUtxoRef(value as UtxoRef);
+      return this.fromUtxoRef(value);
     throw new Error(`Cannot convert value to PrimitiveArgValue: ${value}`);
   },
 
@@ -123,167 +122,58 @@ export const ArgValue = {
   },
 };
 
-// Custom argument value that can represent complex nested structures
+// Custom argument value that can represent complex nested structures with ordered fields
 export type ArgValue = PrimitiveArgValue | CustomArgValue;
 
-// Type helper to convert plain types to ArgValue types recursively
-export type ToArgValue<T> = T extends string
-  ? ArgValueString
-  : T extends number | bigint
-    ? ArgValueInt
-    : T extends boolean
-      ? ArgValueBool
-      : T extends Uint8Array
-        ? ArgValueBytes | ArgValueAddress
-        : T extends Set<infer U>
-          ? U extends Utxo
-            ? ArgValueUtxoSet
-            : never
-          : T extends UtxoRef
-            ? ArgValueUtxoRef
-            : T extends Record<string, any>
-              ? CustomArgValue<T>
-              : never;
-
-// Type helper to map object properties to ArgValue types
-export type ToArgValueRecord<T extends Record<string, any>> = {
-  [K in keyof T]: ToArgValue<T[K]>;
-};
-
-// Type helper to convert ArgValue types back to plain types
-export type FromArgValue<T> = T extends ArgValueString
-  ? string
-  : T extends ArgValueInt
-    ? bigint
-    : T extends ArgValueBool
-      ? boolean
-      : T extends ArgValueBytes | ArgValueAddress
-        ? Uint8Array
-        : T extends ArgValueUtxoSet
-          ? UtxoSet
-          : T extends ArgValueUtxoRef
-            ? UtxoRef
-            : T extends CustomArgValue<infer U>
-              ? U
-              : never;
-
-/**
- * Type-safe CustomArgValue that represents complex nested structures with compile-time type checking.
- * The generic parameter T defines the shape of the data structure, providing full type safety.
- *
- * Features:
- * - Type safety: Full compile-time type checking based on the shape parameter T
- * - Recursive nesting: Can contain other typed CustomArgValue instances
- * - Mixed types: Can contain both primitive and custom values
- * - Serialization: Can be converted to/from plain JavaScript objects
- * - Immutability helpers: Clone, equality checking
- *
- * @template T The shape of the data structure (plain object type)
- *
- * @example
- * ```typescript
- * // Define the shape
- * interface UserConfig {
- *   name: string;
- *   age: number;
- *   settings: {
- *     theme: string;
- *     notifications: boolean;
- *   };
- * }
- *
- * // Create with type safety
- * const config = CustomArgValue.from<UserConfig>({
- *   name: "Alice",
- *   age: 30,
- *   settings: {
- *     theme: "dark",
- *     notifications: true
- *   }
- * });
- *
- * // Type-safe access
- * const name = config.get("name");        // Type: ArgValueString
- * const settings = config.get("settings"); // Type: CustomArgValue<{theme: string, notifications: boolean}>
- * const theme = settings.get("theme");     // Type: ArgValueString
- * ```
- */
 export class CustomArgValue<
-  T extends Record<string, any> = Record<string, any>,
+  TFields extends readonly ArgValue[] = readonly ArgValue[],
 > {
-  public readonly type = "Custom";
-  private readonly _value: Record<string, ArgValue>;
-
-  constructor(value: Record<string, ArgValue>) {
-    this._value = value;
-  }
+  public readonly type = "Custom" as const;
+  public readonly constructorIndex: number;
+  public readonly fields: TFields;
 
   /**
-   * Get the internal value (for compatibility)
+   * Create a new CustomArgValue with a constructor index and ordered fields
+   * @param constructorIndex - The constructor index (positive integer)
+   * @param fields - Ordered array of ArgValue fields
    */
-  get value(): Record<string, ArgValue> {
-    return this._value;
-  }
-
-  /**
-   * Create a CustomArgValue from a plain object.
-   * Automatically converts primitive values to PrimitiveArgValue instances.
-   *
-   * @param obj - Plain JavaScript object to convert
-   * @returns New CustomArgValue instance
-   *
-   * @example
-   * ```typescript
-   * interface Config {
-   *   name: string;
-   *   age: number;
-   *   settings: { theme: string };
-   * }
-   *
-   * const custom = CustomArgValue.from<Config>({
-   *   name: "Alice",           // Becomes ArgValueString
-   *   age: 30,                // Becomes ArgValueInt
-   *   settings: {             // Becomes nested CustomArgValue
-   *     theme: "dark"
-   *   }
-   * });
-   * ```
-   */
-  static from<TShape extends Record<string, any>>(
-    obj: TShape,
-  ): CustomArgValue<TShape> {
-    const convertedValue: Record<string, ArgValue> = {};
-
-    for (const [key, val] of Object.entries(obj)) {
-      if (ArgValue.is(val)) {
-        // Already a PrimitiveArgValue
-        convertedValue[key] = val;
-      } else if (val instanceof CustomArgValue) {
-        // Already a CustomArgValue
-        convertedValue[key] = val;
-      } else if (
-        val &&
-        typeof val === "object" &&
-        !Array.isArray(val) &&
-        !(val instanceof Uint8Array) &&
-        !(val instanceof Set)
-      ) {
-        // Plain object - convert to CustomArgValue recursively
-        convertedValue[key] = CustomArgValue.from(val);
-      } else {
-        // Primitive value - convert using ArgValue.from
-        convertedValue[key] = ArgValue.from(val);
-      }
+  constructor(constructorIndex: number, fields: TFields) {
+    if (!Number.isInteger(constructorIndex) || constructorIndex < 0) {
+      throw new Error("Constructor index must be a non-negative integer");
     }
-
-    return new CustomArgValue<TShape>(convertedValue);
+    this.constructorIndex = constructorIndex;
+    this.fields = fields;
   }
+
+  // No `from` helper here: keep the class minimal and let tests build
+  // CustomArgValue using the constructor or test helpers.
 
   /**
    * Type guard to check if a value is a CustomArgValue
    */
   static is(value: unknown): value is CustomArgValue {
     return value instanceof CustomArgValue;
+  }
+
+  /**
+   * Convert fields to a plain array (for serialization)
+   */
+  toArray(): ArgValue[] {
+    return [...this.fields];
+  }
+
+  /**
+   * Get a specific field by index
+   */
+  getField<T extends ArgValue>(index: number): T | undefined {
+    return this.fields[index] as T | undefined;
+  }
+
+  /**
+   * Get the number of fields
+   */
+  get length(): number {
+    return this.fields.length;
   }
 }
 
@@ -344,10 +234,7 @@ export class ArgValueError extends Error {
 }
 
 export class TrpError extends Error {
-  constructor(
-    message: string,
-    public override cause?: any,
-  ) {
+  constructor(message: string, public override cause?: any) {
     super(message);
     this.name = "TrpError";
   }
@@ -361,20 +248,14 @@ export class NetworkError extends TrpError {
 }
 
 export class StatusCodeError extends TrpError {
-  constructor(
-    public statusCode: number,
-    message: string,
-  ) {
+  constructor(public statusCode: number, message: string) {
     super(`HTTP error ${statusCode}: ${message}`);
     this.name = "StatusCodeError";
   }
 }
 
 export class JsonRpcError extends TrpError {
-  constructor(
-    message: string,
-    public data?: any,
-  ) {
+  constructor(message: string, public data?: any) {
     super(`JSON-RPC error: ${message}`);
     this.name = "JsonRpcError";
     this.cause = data;
