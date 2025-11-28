@@ -145,9 +145,6 @@ export class CustomArgValue<
     this.fields = fields;
   }
 
-  // No `from` helper here: keep the class minimal and let tests build
-  // CustomArgValue using the constructor or test helpers.
-
   /**
    * Type guard to check if a value is a CustomArgValue
    */
