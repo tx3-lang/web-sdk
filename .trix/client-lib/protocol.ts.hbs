@@ -6,6 +6,12 @@ import {
     type ClientOptions,
     type SubmitParams,
     type ResolveResponse,
+    type ArgValueInt,
+    type ArgValueBool,
+    type ArgValueBytes,
+    type ArgValueString,
+    type ArgValueAddress,
+    type ArgValueUtxoRef,
 } from "tx3-sdk/trp";
 
 
@@ -23,10 +29,40 @@ export const DEFAULT_ENV_ARGS = {
 {{/each}}
 };
 
+// ============================================================================
+// Custom Type Definitions
+// ============================================================================
+
+{{#each customTypes}}
+{{#each variants}}
+/**
+ * {{../name}}{{#unless (eq name "Default")}}.{{name}}{{/unless}} (constructor {{index}})
+ {{#each fields}}
+ * @field {{name}} - {{typeName}}
+ {{/each}}
+ */
+export type {{pascalCase ../name}}{{pascalCase name}} = {
+    constructor: {{index}};
+    fields: [{{#each fields}}{{argValueType typeName "typescript"}}{{#unless @last}}, {{/unless}}{{/each}}];
+};
+
+{{/each}}
+/** Union of all {{name}} variants */
+export type {{pascalCase name}} = {{#each variants}}{{pascalCase ../name}}{{pascalCase name}}{{#unless @last}} | {{/unless}}{{/each}};
+
+{{/each}}
+// ============================================================================
+// Transaction Definitions
+// ============================================================================
+
 {{#each transactions}}
 export type {{pascalCase params_name}} = {
 {{#each parameters}}
-    {{camelCase name}}: ArgValue | {{typeFor type_name "typescript"}}; // {{type_name}}
+{{#if isCustom}}
+    {{camelCase name}}: {{typeFor typeName "typescript"}};
+{{else}}
+    {{camelCase name}}: {{argValueType typeName "typescript"}};
+{{/if}}
 {{/each}}
 }
 
