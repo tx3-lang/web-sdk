@@ -118,61 +118,35 @@ export const ArgValue = {
    * Type guard to check if a value is any kind of ArgValue (Primitive or Custom)
    */
   isAny(value: unknown): value is ArgValue {
-    return this.is(value) || CustomArgValue.is(value);
+    return this.is(value) || isCustomArgValue(value);
   },
 };
 
-// Custom argument value that can represent complex nested structures with ordered fields
-export type ArgValue = PrimitiveArgValue | CustomArgValue;
-
-export class CustomArgValue<
-  TFields extends readonly ArgValue[] = readonly ArgValue[],
-> {
-  public readonly type = "Custom" as const;
-  public readonly constructorIndex: number;
-  public readonly fields: TFields;
-
-  /**
-   * Create a new CustomArgValue with a constructor index and ordered fields
-   * @param constructorIndex - The constructor index (positive integer)
-   * @param fields - Ordered array of ArgValue fields
-   */
-  constructor(constructorIndex: number, fields: TFields) {
-    if (!Number.isInteger(constructorIndex) || constructorIndex < 0) {
-      throw new Error("Constructor index must be a non-negative integer");
-    }
-    this.constructorIndex = constructorIndex;
-    this.fields = fields;
-  }
-
-  /**
-   * Type guard to check if a value is a CustomArgValue
-   */
-  static is(value: unknown): value is CustomArgValue {
-    return value instanceof CustomArgValue;
-  }
-
-  /**
-   * Convert fields to a plain array (for serialization)
-   */
-  toArray(): ArgValue[] {
-    return [...this.fields];
-  }
-
-  /**
-   * Get a specific field by index
-   */
-  getField<T extends ArgValue>(index: number): T | undefined {
-    return this.fields[index] as T | undefined;
-  }
-
-  /**
-   * Get the number of fields
-   */
-  get length(): number {
-    return this.fields.length;
-  }
+/**
+ * Custom argument value - a plain object representing a sum type variant
+ * with a constructor index and ordered fields.
+ */
+export interface CustomArgValue {
+  constructor: number;
+  fields: ArgValue[];
 }
+
+/**
+ * Type guard to check if a value is a CustomArgValue
+ */
+export function isCustomArgValue(value: unknown): value is CustomArgValue {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "constructor" in value &&
+    typeof (value as any).constructor === "number" &&
+    "fields" in value &&
+    Array.isArray((value as any).fields)
+  );
+}
+
+// Union of all ArgValue types
+export type ArgValue = PrimitiveArgValue | CustomArgValue;
 
 export interface BytesEnvelope {
   content: string;

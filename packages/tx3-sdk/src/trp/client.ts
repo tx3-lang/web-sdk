@@ -2,7 +2,7 @@ import { toJson } from "./args.js";
 import {
   ArgValue,
   ClientOptions,
-  CustomArgValue,
+  isCustomArgValue,
   JsonRpcError,
   NetworkError,
   ProtoTxRequest,
@@ -111,17 +111,16 @@ export class Client {
       const newKey = force_snake_case
         ? key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
         : key;
-      // Check if it's already an ArgValue, otherwise convert it
+      // Check if it's already a PrimitiveArgValue
       if (
         value &&
         typeof value === "object" &&
         "type" in value &&
         "value" in value
       ) {
-        // It's already an ArgValue (either primitive or custom)
         result[newKey] = toJson(value);
-      } else if (value instanceof CustomArgValue) {
-        // It's a CustomArgValue
+      } else if (isCustomArgValue(value)) {
+        // It's a CustomArgValue (plain object with constructor/fields)
         result[newKey] = toJson(value);
       } else {
         // Convert primitive value to ArgValue

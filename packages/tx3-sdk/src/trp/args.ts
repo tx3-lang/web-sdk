@@ -8,6 +8,7 @@ import {
   ArgValueError,
   CustomArgValue,
   ArgValue,
+  isCustomArgValue,
 } from "./types.js";
 
 const MIN_I128 = -(BigInt(2) ** BigInt(127));
@@ -246,10 +247,10 @@ function utxoRefToValue(x: UtxoRef): string {
 }
 
 export function toJson(value: PrimitiveArgValue | CustomArgValue): any {
-  // Handle CustomArgValue with ordered fields
-  if (value instanceof CustomArgValue) {
+  // Handle CustomArgValue (plain object with constructor and fields)
+  if (isCustomArgValue(value)) {
     return {
-      constructor: value.constructorIndex,
+      constructor: value.constructor,
       fields: value.fields.map((field) => toJson(field)),
     };
   }
@@ -329,14 +330,17 @@ export function createUtxoRefArg(
 
 /**
  * Create a CustomArgValue with a constructor index and ordered fields
- * @param constructorIndex - The constructor index (positive integer)
+ * @param constructorIndex - The constructor index (non-negative integer)
  * @param fields - Ordered array of ArgValue fields
  */
-export function createCustomArg<TFields extends readonly ArgValue[]>(
+export function createCustomArg(
   constructorIndex: number,
-  fields: TFields,
-): CustomArgValue<TFields> {
-  return new CustomArgValue(constructorIndex, fields);
+  fields: ArgValue[],
+): CustomArgValue {
+  if (!Number.isInteger(constructorIndex) || constructorIndex < 0) {
+    throw new ArgValueError("Constructor index must be a non-negative integer");
+  }
+  return { constructor: constructorIndex, fields };
 }
 
 /**
@@ -380,7 +384,7 @@ function valueToCustom(value: any): CustomArgValue {
     return fromJson(fieldValue, Type.Undefined);
   });
 
-  return new CustomArgValue(constructorIndex, fields);
+  return { constructor: constructorIndex, fields };
 }
 
 export { hexToBytes, bytesToHex, valueToCustom };
