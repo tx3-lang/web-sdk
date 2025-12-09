@@ -247,7 +247,9 @@ function utxoRefToValue(x: UtxoRef): string {
 }
 
 export function toJson(value: PrimitiveArgValue | CustomArgValue): any {
-  // Handle CustomArgValue (plain object with constructor and fields)
+  if (Array.isArray(value)) {
+    return value.map((v) => toJson(v));
+  }
   if (isCustomArgValue(value)) {
     return {
       constructor: value.constructor,
@@ -379,6 +381,21 @@ function valueToCustom(value: any): CustomArgValue {
       "fields" in fieldValue
     ) {
       return valueToCustom(fieldValue);
+    }
+
+    // convert each element to an ArgValue representation
+    if (Array.isArray(fieldValue)) {
+      return fieldValue.map((elem: any) => {
+        if (
+          elem &&
+          typeof elem === "object" &&
+          "constructor" in elem &&
+          "fields" in elem
+        ) {
+          return valueToCustom(elem);
+        }
+        return fromJson(elem, Type.Undefined);
+      });
     }
 
     return fromJson(fieldValue, Type.Undefined);
