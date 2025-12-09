@@ -106,31 +106,64 @@ export class Client {
     args: Record<string, any>,
     force_snake_case: boolean,
   ): Record<string, any> {
-    const result: Record<string, any> = {};
-    for (const [key, value] of Object.entries(args)) {
-      const newKey = force_snake_case
-        ? key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
-        : key;
-      // Check if it's already a PrimitiveArgValue
+    // Helper to convert a single value into the JSON shape expected by TRP.
+    const convertValue = (value: any): any => {
+      // Already a PrimitiveArgValue
       if (
         value &&
         typeof value === "object" &&
         "type" in value &&
         "value" in value
       ) {
-        result[newKey] = toJson(value);
-      } else if (isCustomArgValue(value)) {
-        // It's a CustomArgValue (plain object with constructor/fields)
-        result[newKey] = toJson(value);
-      } else {
-        // Convert primitive value to ArgValue
-        try {
-          result[newKey] = toJson(ArgValue.from(value));
-        } catch {
-          // If conversion fails, use the value as-is
-          result[newKey] = value;
-        }
+        return toJson(value);
       }
+
+      if (isCustomArgValue(value)) {
+        return toJson(value);
+      }
+
+      if (Array.isArray(value)) {
+        return value.map((el) => {
+          if (el && typeof el === "object" && "type" in el && "value" in el) {
+            return toJson(el);
+          }
+
+          if (isCustomArgValue(el)) {
+            return toJson(el);
+          }
+
+          try {
+            return toJson(ArgValue.from(el));
+          } catch {
+            return convertValue(el);
+          }
+        });
+      }
+
+      // Try converting primitives
+      try {
+        return toJson(ArgValue.from(value));
+      } catch {
+        // If plain object, convert each field recursively
+        if (value && typeof value === "object") {
+          const objResult: Record<string, any> = {};
+          for (const [k, v] of Object.entries(value)) {
+            objResult[k] = convertValue(v);
+          }
+          return objResult;
+        }
+
+        return value;
+      }
+    };
+
+    const result: Record<string, any> = {};
+    for (const [key, value] of Object.entries(args)) {
+      const newKey = force_snake_case
+        ? key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
+        : key;
+
+      result[newKey] = convertValue(value);
     }
     return result;
   }
