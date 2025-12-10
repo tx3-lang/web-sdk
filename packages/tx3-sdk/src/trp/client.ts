@@ -106,7 +106,6 @@ export class Client {
     args: Record<string, any>,
     force_snake_case: boolean,
   ): Record<string, any> {
-    // Helper to convert a single value into the JSON shape expected by TRP.
     const convertValue = (value: any): any => {
       // Already a PrimitiveArgValue
       if (
