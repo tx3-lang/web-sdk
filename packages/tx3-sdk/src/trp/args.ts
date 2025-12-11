@@ -5,6 +5,7 @@ import {
   BytesEnvelope,
   Type,
   UtxoRef,
+  Utxo,
   ArgValueError,
   CustomArgValue,
   ArgValue,
@@ -246,7 +247,20 @@ function utxoRefToValue(x: UtxoRef): string {
   return `${bytesToHex(x.txid)}#${x.index}`;
 }
 
-export function toJson(value: PrimitiveArgValue | CustomArgValue): any {
+export function toJson(value: PrimitiveArgValue | CustomArgValue | any): any {
+  const isPrimitiveArg = (v: any) =>
+    typeof v === "number" ||
+    typeof v === "bigint" ||
+    typeof v === "string" ||
+    typeof v === "boolean" ||
+    v instanceof Uint8Array ||
+    v instanceof Set ||
+    (v && typeof v === "object" && "txid" in v);
+
+  if (isPrimitiveArg(value)) {
+    return toJson(ArgValue.from(value));
+  }
+
   if (Array.isArray(value)) {
     return value.map((v) => toJson(v));
   }
@@ -258,30 +272,33 @@ export function toJson(value: PrimitiveArgValue | CustomArgValue): any {
   }
 
   // Handle PrimitiveArgValue
-  switch (value.type) {
-    case "Int":
-      return bigintToValue(value.value);
-    case "Bool":
-      return value.value;
-    case "String":
-      return value.value;
-    case "Bytes":
-      return `0x${bytesToHex(value.value)}`;
-    case "Address":
-      return bytesToHex(value.value);
-    case "UtxoSet":
-      return Array.from(value.value).map((utxo) => ({
-        ref: utxoRefToValue(utxo.ref),
-        address: bytesToHex(utxo.address),
-        datum: utxo.datum,
-        assets: utxo.assets,
-        script: utxo.script,
-      }));
-    case "UtxoRef":
-      return utxoRefToValue(value.value);
-    default:
-      throw new ArgValueError(`Unknown ArgValue type: ${(value as any).type}`);
+  if (value && typeof value === "object" && "type" in value) {
+    switch (value.type) {
+      case "Int":
+        return bigintToValue(value.value);
+      case "Bool":
+        return value.value;
+      case "String":
+        return value.value;
+      case "Bytes":
+        return `0x${bytesToHex(value.value)}`;
+      case "Address":
+        return bytesToHex(value.value);
+      case "UtxoSet":
+        return Array.from(value.value as Set<Utxo>).map((utxo: Utxo) => ({
+          ref: utxoRefToValue(utxo.ref),
+          address: bytesToHex(utxo.address),
+          datum: utxo.datum,
+          assets: utxo.assets,
+          script: utxo.script,
+        }));
+      case "UtxoRef":
+        return utxoRefToValue(value.value);
+      default:
+        throw new ArgValueError(`Unknown ArgValue type: ${value.type}`);
+    }
   }
+  throw new ArgValueError(`Cannot convert value to JSON: ${value}`);
 }
 
 export function fromJson(value: any, target: Type): PrimitiveArgValue {
