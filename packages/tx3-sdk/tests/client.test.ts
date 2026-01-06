@@ -1,12 +1,12 @@
 import { Client } from '../src/trp/client';
 import { createIntArg, createStringArg, createBoolArg } from '../src/trp/args';
-import { 
-  TrpError, 
-  NetworkError, 
-  StatusCodeError, 
+import {
+  TrpError,
+  NetworkError,
+  StatusCodeError,
   JsonRpcError,
   ProtoTxRequest,
-  ResolveResponse, 
+  ResolveResponse,
 } from '../src/trp/types';
 
 // Mock fetch globally for Node.js environment
@@ -70,7 +70,7 @@ describe('TRP Client Tests', () => {
       const protoTx: ProtoTxRequest = {
         tir: {
           version: '1.0',
-          bytecode: 'test-bytecode',
+          content: 'test-bytecode',
           encoding: 'base64'
         },
         args: {
@@ -84,7 +84,7 @@ describe('TRP Client Tests', () => {
 
       expect(result).toEqual(mockResponse);
       expect(mockFetch).toHaveBeenCalledTimes(1);
-      
+
       // Verify the request was made correctly
       const [url, options] = mockFetch.mock.calls[0];
       expect(url).toBe('https://test-endpoint.com/trp');
@@ -131,7 +131,7 @@ describe('TRP Client Tests', () => {
       } as Response);
 
       const protoTx: ProtoTxRequest = {
-        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        tir: { version: '1.0', content: 'test', encoding: 'hex' },
         args: { amount: createIntArg(1000) }
       };
 
@@ -154,7 +154,7 @@ describe('TRP Client Tests', () => {
       } as Response);
 
       const protoTx: ProtoTxRequest = {
-        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        tir: { version: '1.0', content: 'test', encoding: 'hex' },
         args: {}
       };
 
@@ -177,12 +177,12 @@ describe('TRP Client Tests', () => {
       } as Response);
 
       const protoTx: ProtoTxRequest = {
-        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        tir: { version: '1.0', content: 'test', encoding: 'hex' },
         args: {}
       };
 
       await expect(client.resolve(protoTx)).rejects.toThrow(JsonRpcError);
-      
+
       try {
         await client.resolve(protoTx);
       } catch (error) {
@@ -197,7 +197,7 @@ describe('TRP Client Tests', () => {
       mockFetch.mockRejectedValue(new TypeError('fetch failed'));
 
       const protoTx: ProtoTxRequest = {
-        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        tir: { version: '1.0', content: 'test', encoding: 'hex' },
         args: {}
       };
 
@@ -215,7 +215,7 @@ describe('TRP Client Tests', () => {
       } as unknown as Response);
 
       const protoTx: ProtoTxRequest = {
-        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        tir: { version: '1.0', content: 'test', encoding: 'hex' },
         args: {}
       };
 
@@ -235,7 +235,7 @@ describe('TRP Client Tests', () => {
       } as Response);
 
       const protoTx: ProtoTxRequest = {
-        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        tir: { version: '1.0', content: 'test', encoding: 'hex' },
         args: {}
       };
 
@@ -257,7 +257,7 @@ describe('TRP Client Tests', () => {
       } as Response);
 
       const protoTx: ProtoTxRequest = {
-        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        tir: { version: '1.0', content: 'test', encoding: 'hex' },
         args: {}
       };
 
@@ -265,10 +265,10 @@ describe('TRP Client Tests', () => {
       await client.resolve(protoTx);
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      
+
       const body1 = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
       const body2 = JSON.parse(mockFetch.mock.calls[1][1]?.body as string);
-      
+
       expect(body1.id).toBeDefined();
       expect(body2.id).toBeDefined();
       expect(body1.id).not.toBe(body2.id);
@@ -286,7 +286,7 @@ describe('TRP Client Tests', () => {
       } as Response);
 
       const protoTx: ProtoTxRequest = {
-        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        tir: { version: '1.0', content: 'test', encoding: 'hex' },
         args: {
           smallNumber: createIntArg(42),
           bigNumber: createIntArg(BigInt('123456789012345678901234567890')),
@@ -327,7 +327,7 @@ describe('TRP Client Tests', () => {
       const protoTx: ProtoTxRequest = {
         tir: {
           version: '1.0',
-          bytecode: 'test-bytecode',
+          content: 'test-bytecode',
           encoding: 'base64'
         },
         args: {
@@ -342,7 +342,7 @@ describe('TRP Client Tests', () => {
       const result = await client.resolve(protoTx);
 
       expect(result).toEqual(mockResponse);
-      
+
       const body = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
       expect(body.params.args).toEqual({
         amount: 100000000,
@@ -365,7 +365,7 @@ describe('TRP Client Tests', () => {
 
       const largeBigInt = BigInt('999999999999999999999999');
       const protoTx: ProtoTxRequest = {
-        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        tir: { version: '1.0', content: 'test', encoding: 'hex' },
         args: {
           largeAmount: largeBigInt,
           regularAmount: 1000,
@@ -393,7 +393,7 @@ describe('TRP Client Tests', () => {
       } as Response);
 
       const protoTx: ProtoTxRequest = {
-        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        tir: { version: '1.0', content: 'test', encoding: 'hex' },
         args: {
           isActive: true,
           isCompleted: false,
@@ -423,7 +423,7 @@ describe('TRP Client Tests', () => {
       } as Response);
 
       const protoTx: ProtoTxRequest = {
-        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        tir: { version: '1.0', content: 'test', encoding: 'hex' },
         args: {
           recipient: 'addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80d8dh',
           memo: 'Payment for services',
@@ -453,7 +453,7 @@ describe('TRP Client Tests', () => {
       } as Response);
 
       const protoTx: ProtoTxRequest = {
-        tir: { version: '1.0', bytecode: 'test', encoding: 'hex' },
+        tir: { version: '1.0', content: 'test', encoding: 'hex' },
         args: {
           // Mix of factory functions and native values (though all go through factory functions for now)
           nativeNumber: 42,

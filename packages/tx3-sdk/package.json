@@ -1,7 +1,7 @@
 {
   "name": "tx3-sdk",
   "version": "0.6.0",
-  "description": "TRP Client for the Tx3 Language",
+  "description": "Software Development Kit for the Tx3 Language",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "module": "dist/index.esm.js",
@@ -58,5 +58,7 @@
       ]
     }
   },
-  "dependencies": {}
+  "dependencies": {
+    "bech32": "^2.0.0"
+  }
 }

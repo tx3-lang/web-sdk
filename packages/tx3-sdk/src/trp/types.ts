@@ -19,7 +19,7 @@ export interface AssetExpr {
 
 export type UtxoSet = Set<Utxo>;
 
-export type ArgValue = 
+export type ArgValue =
   | { type: 'Int'; value: bigint }
   | { type: 'Bool'; value: boolean }
   | { type: 'String'; value: string }
@@ -34,31 +34,31 @@ export const ArgValue = {
   fromString(value: string): ArgValue {
     return { type: 'String', value };
   },
-  
+
   fromNumber(value: number | bigint): ArgValue {
     return { type: 'Int', value: typeof value === 'number' ? BigInt(value) : value };
   },
-  
+
   fromBool(value: boolean): ArgValue {
     return { type: 'Bool', value };
   },
-  
+
   fromBytes(value: Uint8Array): ArgValue {
     return { type: 'Bytes', value };
   },
-  
+
   fromAddress(value: Uint8Array): ArgValue {
     return { type: 'Address', value };
   },
-  
+
   fromUtxoSet(value: UtxoSet): ArgValue {
     return { type: 'UtxoSet', value };
   },
-  
+
   fromUtxoRef(value: UtxoRef): ArgValue {
     return { type: 'UtxoRef', value };
   },
-  
+
   // Generic from function for convenience
   from(value: string | number | bigint | boolean | Uint8Array | UtxoSet | UtxoRef): ArgValue {
     if (typeof value === 'string') return this.fromString(value);
@@ -114,7 +114,7 @@ export enum Type {
 
 export interface TirInfo {
   version: string;
-  bytecode: string;
+  content: string;
   encoding: string;
 }
 
