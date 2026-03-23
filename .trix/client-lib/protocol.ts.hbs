@@ -2,38 +2,31 @@
 
 import {
     TRPClient,
-    type ArgValue,
     type ClientOptions,
     type SubmitParams,
     type ResolveResponse,
 } from "tx3-sdk/trp";
 
-
-export const DEFAULT_TRP_ENDPOINT = "{{trpEndpoint}}";
-
-export const DEFAULT_HEADERS = {
-{{#each headers}}
-    '{{@key}}': '{{this}}',
+export const PROFILES = {
+{{#each tii.profiles}}
+    "{{@key}}": {
+        environment: {{{environment}}},
+        parties: {{{parties}}}
+    }{{#unless @last}},{{/unless}}
 {{/each}}
 };
 
-export const DEFAULT_ENV_ARGS = {
-{{#each envArgs}}
-    '{{@key}}': '{{this}}',
-{{/each}}
-};
-
-{{#each transactions}}
-export type {{pascalCase params_name}} = {
-{{#each parameters}}
-    {{camelCase name}}: ArgValue | {{typeFor type_name "typescript"}}; // {{type_name}}
+{{#each tii.transactions}}
+export type {{pascalCase @key}}Params = {
+{{#each params.properties}}
+    {{camelCase @key}}: {{schemaTypeFor this "typescript"}};
 {{/each}}
 }
 
-export const {{constantCase constant_name}} = {
-    content: "{{ir_bytes}}",
+export const {{constantCase @key}}_TIR = {
+    content: "{{tir.content}}",
     encoding: "hex",
-    version: "{{ir_version}}",
+    version: "{{tir.version}}",
 };
 
 {{/each}}
@@ -44,10 +37,10 @@ export class Client {
         this.#client = new TRPClient(options);
     }
 
-    {{#each transactions}}
-    async {{camelCase function_name}}(args: {{pascalCase params_name}}): Promise<ResolveResponse> {
+    {{#each tii.transactions}}
+    async {{camelCase @key}}(args: {{pascalCase @key}}Params): Promise<ResolveResponse> {
         return await this.#client.resolve({
-            tir: {{constantCase constant_name}},
+            tir: {{constantCase @key}}_TIR,
             args,
         });
     }
@@ -57,10 +50,3 @@ export class Client {
         await this.#client.submit(params);
     }
 }
-
-// Create a default client instance
-export const protocol = new Client({
-    endpoint: DEFAULT_TRP_ENDPOINT,
-    headers: DEFAULT_HEADERS,
-    envArgs: DEFAULT_ENV_ARGS,
-});
