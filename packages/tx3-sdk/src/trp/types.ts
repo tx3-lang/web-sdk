@@ -133,7 +133,8 @@ export type SubmitWitness = VKeyWitness;
 
 export interface SubmitParams {
   tx: BytesEnvelope;
-  witnesses: SubmitWitness[];
+  // SubmitWitness or cbor witness (Transaction WitnessSet from any cardano wallet)
+  witnesses: (SubmitWitness | string)[]; 
 }
 
 export interface ClientOptions {
