@@ -24,12 +24,12 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/tx3-lang/web-sdk.git",
-    "directory": "packages/install-tx3-nextjs"
+    "directory": "integrations/install-tx3-nextjs"
   },
   "bugs": {
     "url": "https://github.com/tx3-lang/web-sdk/issues"
   },
-  "homepage": "https://github.com/tx3-lang/web-sdk/tree/main/packages/install-tx3-nextjs#readme",
+  "homepage": "https://github.com/tx3-lang/web-sdk/tree/main/integrations/install-tx3-nextjs#readme",
   "dependencies": {},
   "engines": {
     "node": ">=16.0.0"
