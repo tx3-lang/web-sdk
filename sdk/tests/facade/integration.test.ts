@@ -22,8 +22,25 @@ const FIXTURE = path.resolve(__dirname, '../fixtures/transfer.tii');
 const SENDER_KEY = 'aa'.repeat(32);
 const SENDER_ADDR = 'addr_test1_sender';
 const RECEIVER_ADDR = 'addr_test1_receiver';
-const MIDDLEMAN_ADDR = 'addr_test1_middleman';
 const TX_HASH = 'bb'.repeat(32);
+const DEFAULT_MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+const INTEGRATION_ENV = {
+  endpoint: process.env.TRP_ENDPOINT_PREPROD ?? 'http://localhost:9999/rpc',
+  apiKey: process.env.TRP_API_KEY_PREPROD ?? '',
+  partyAAddress: process.env.TEST_PARTY_A_ADDRESS ?? SENDER_ADDR,
+  partyAMnemonic:
+    process.env.TEST_PARTY_A_MNEMONIC ?? process.env.TEST_PARTY_B_MNEMONIC ?? DEFAULT_MNEMONIC,
+  partyBAddress: process.env.TEST_PARTY_B_ADDRESS ?? RECEIVER_ADDR,
+  partyBMnemonic:
+    process.env.TEST_PARTY_B_MNEMONIC ?? process.env.TEST_PARTY_A_MNEMONIC ?? DEFAULT_MNEMONIC,
+};
+
+function makeTrpClient(): TrpClient {
+  const headers = INTEGRATION_ENV.apiKey
+    ? { 'dmtr-api-key': INTEGRATION_ENV.apiKey }
+    : undefined;
+  return new TrpClient({ endpoint: INTEGRATION_ENV.endpoint, headers });
+}
 
 function jsonRpcOk(result: unknown) {
   return { jsonrpc: '2.0', result, id: '1' };
@@ -79,14 +96,14 @@ describe('Facade integration', () => {
       statusConfirmed,
     ) as never;
 
-    const trp = new TrpClient({ endpoint: 'http://localhost:9999/rpc' });
-    const signer = Ed25519Signer.fromHex(SENDER_ADDR, SENDER_KEY);
+    const trp = makeTrpClient();
+    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
 
     const tx3 = new Tx3Client(protocol, trp)
       .withProfile('preprod')
       .withParty('sender', Party.signer(signer))
-      .withParty('receiver', Party.address(RECEIVER_ADDR))
-      .withParty('middleman', Party.address(MIDDLEMAN_ADDR));
+      .withParty('receiver', Party.address(INTEGRATION_ENV.partyBAddress))
+      .withParty('middleman', Party.address(INTEGRATION_ENV.partyBAddress));
 
     const status = await tx3
       .tx('transfer')
@@ -101,7 +118,7 @@ describe('Facade integration', () => {
   });
 
   test('UnknownPartyError when party not in protocol', async () => {
-    const trp = new TrpClient({ endpoint: 'http://localhost:9999/rpc' });
+    const trp = makeTrpClient();
 
     const tx3 = new Tx3Client(protocol, trp)
       .withParty('stranger', Party.address('addr_test1_stranger'));
@@ -115,14 +132,14 @@ describe('Facade integration', () => {
     const resolveResponse = jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' });
     globalThis.fetch = mockFetchSequence(resolveResponse) as never;
 
-    const trp = new TrpClient({ endpoint: 'http://localhost:9999/rpc' });
-    const signer = Ed25519Signer.fromHex(SENDER_ADDR, SENDER_KEY);
+    const trp = makeTrpClient();
+    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
 
     const tx3 = new Tx3Client(protocol, trp)
       .withProfile('preprod')
       .withParty('sender', Party.signer(signer))
-      .withParty('receiver', Party.address(RECEIVER_ADDR))
-      .withParty('middleman', Party.address(MIDDLEMAN_ADDR));
+      .withParty('receiver', Party.address(INTEGRATION_ENV.partyBAddress))
+      .withParty('middleman', Party.address(INTEGRATION_ENV.partyBAddress));
 
     await expect(tx3.tx('transfer').resolve()).rejects.toThrow(MissingParamsError);
   });
@@ -133,14 +150,14 @@ describe('Facade integration', () => {
 
     globalThis.fetch = mockFetchSequence(resolveResponse, submitResponse) as never;
 
-    const trp = new TrpClient({ endpoint: 'http://localhost:9999/rpc' });
-    const signer = Ed25519Signer.fromHex(SENDER_ADDR, SENDER_KEY);
+    const trp = makeTrpClient();
+    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
 
     const tx3 = new Tx3Client(protocol, trp)
       .withProfile('preprod')
       .withParty('sender', Party.signer(signer))
-      .withParty('receiver', Party.address(RECEIVER_ADDR))
-      .withParty('middleman', Party.address(MIDDLEMAN_ADDR));
+      .withParty('receiver', Party.address(INTEGRATION_ENV.partyBAddress))
+      .withParty('middleman', Party.address(INTEGRATION_ENV.partyBAddress));
 
     const resolved = await tx3.tx('transfer').arg('quantity', 100).resolve();
     const signed = await resolved.sign();
@@ -163,14 +180,14 @@ describe('Facade integration', () => {
       statusDropped,
     ) as never;
 
-    const trp = new TrpClient({ endpoint: 'http://localhost:9999/rpc' });
-    const signer = Ed25519Signer.fromHex(SENDER_ADDR, SENDER_KEY);
+    const trp = makeTrpClient();
+    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
 
     const tx3 = new Tx3Client(protocol, trp)
       .withProfile('preprod')
       .withParty('sender', Party.signer(signer))
-      .withParty('receiver', Party.address(RECEIVER_ADDR))
-      .withParty('middleman', Party.address(MIDDLEMAN_ADDR));
+      .withParty('receiver', Party.address(INTEGRATION_ENV.partyBAddress))
+      .withParty('middleman', Party.address(INTEGRATION_ENV.partyBAddress));
 
     const submitted = await tx3
       .tx('transfer')
@@ -199,14 +216,14 @@ describe('Facade integration', () => {
       statusPending,
     ) as never;
 
-    const trp = new TrpClient({ endpoint: 'http://localhost:9999/rpc' });
-    const signer = Ed25519Signer.fromHex(SENDER_ADDR, SENDER_KEY);
+    const trp = makeTrpClient();
+    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
 
     const tx3 = new Tx3Client(protocol, trp)
       .withProfile('preprod')
       .withParty('sender', Party.signer(signer))
-      .withParty('receiver', Party.address(RECEIVER_ADDR))
-      .withParty('middleman', Party.address(MIDDLEMAN_ADDR));
+      .withParty('receiver', Party.address(INTEGRATION_ENV.partyBAddress))
+      .withParty('middleman', Party.address(INTEGRATION_ENV.partyBAddress));
 
     const submitted = await tx3
       .tx('transfer')
@@ -247,12 +264,12 @@ describe('Facade integration', () => {
       },
     };
 
-    const trp = new TrpClient({ endpoint: 'http://localhost:9999/rpc' });
+    const trp = makeTrpClient();
     const tx3 = new Tx3Client(protocol, trp)
       .withProfile('preprod')
       .withParty('sender', Party.signer(customSigner))
-      .withParty('receiver', Party.address(RECEIVER_ADDR))
-      .withParty('middleman', Party.address(MIDDLEMAN_ADDR));
+      .withParty('receiver', Party.address(INTEGRATION_ENV.partyBAddress))
+      .withParty('middleman', Party.address(INTEGRATION_ENV.partyBAddress));
 
     const status = await tx3
       .tx('transfer')
@@ -269,14 +286,14 @@ describe('Facade integration', () => {
     const resolveResponse = jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' });
     globalThis.fetch = mockFetchSequence(resolveResponse) as never;
 
-    const trp = new TrpClient({ endpoint: 'http://localhost:9999/rpc' });
-    const signer = Ed25519Signer.fromHex(SENDER_ADDR, SENDER_KEY);
+    const trp = makeTrpClient();
+    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
 
     const tx3 = new Tx3Client(protocol, trp)
       .withProfile('preprod')
       .withParty('SeNdEr', Party.signer(signer))
-      .withParty('RECEIVER', Party.address(RECEIVER_ADDR))
-      .withParty('Middleman', Party.address(MIDDLEMAN_ADDR));
+      .withParty('RECEIVER', Party.address(INTEGRATION_ENV.partyBAddress))
+      .withParty('Middleman', Party.address(INTEGRATION_ENV.partyBAddress));
 
     const resolved = await tx3
       .tx('transfer')
@@ -293,7 +310,7 @@ describe('Facade integration', () => {
   });
 
   test('withProfile returns a new client', () => {
-    const trp = new TrpClient({ endpoint: 'http://localhost:9999/rpc' });
+    const trp = makeTrpClient();
     const a = new Tx3Client(protocol, trp);
     const b = a.withProfile('preprod');
     expect(b).not.toBe(a);
@@ -303,15 +320,15 @@ describe('Facade integration', () => {
     const resolveResponse = jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' });
     globalThis.fetch = mockFetchSequence(resolveResponse) as never;
 
-    const trp = new TrpClient({ endpoint: 'http://localhost:9999/rpc' });
-    const signer = Ed25519Signer.fromHex(SENDER_ADDR, SENDER_KEY);
+    const trp = makeTrpClient();
+    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
 
     const tx3 = new Tx3Client(protocol, trp)
       .withProfile('preprod')
       .withParties({
         sender: Party.signer(signer),
-        receiver: Party.address(RECEIVER_ADDR),
-        middleman: Party.address(MIDDLEMAN_ADDR),
+        receiver: Party.address(INTEGRATION_ENV.partyBAddress),
+        middleman: Party.address(INTEGRATION_ENV.partyBAddress),
       });
 
     const resolved = await tx3
