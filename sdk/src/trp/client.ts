@@ -1,147 +1,212 @@
-import { 
-  ClientOptions, 
-  ProtoTxRequest, 
-  ResolveResponse, 
-  TrpError, 
-  NetworkError, 
-  StatusCodeError, 
-  JsonRpcError,
+import {
+  DeserializationError,
+  GenericRpcError,
+  HttpError,
+  InputNotResolvedError,
+  MalformedResponseError,
+  MissingTxArgError,
+  NetworkError,
+  TxScriptFailureError,
+  UnsupportedTirError,
+} from './errors.js';
+import type {
+  CheckStatusResponse,
+  DumpLogsResponse,
+  InputNotResolvedDiagnostic,
+  MissingTxArgDiagnostic,
+  PeekInflightResponse,
+  PeekPendingResponse,
+  ResolveParams,
   SubmitParams,
-  ArgValue,
-} from './types.js';
-import { toJson } from './args.js';
+  SubmitResponse,
+  TxEnvelope,
+  TxScriptFailureDiagnostic,
+  UnsupportedTirDiagnostic,
+} from './spec.js';
 
-interface JsonRpcResponse<T = any> {
-  result?: T;
-  error?: {
-    message: string;
-    data?: any;
-  };
+export interface ClientOptions {
+  endpoint: string;
+  headers?: Record<string, string>;
 }
 
-/**
- * Client for the Transaction Resolve Protocol (TRP)
- */
-export class Client {
-  private readonly options: ClientOptions;
+interface JsonRpcRequest {
+  jsonrpc: '2.0';
+  method: string;
+  params: unknown;
+  id: string;
+}
 
-  constructor(options: ClientOptions) {
-    this.options = options;
+interface JsonRpcResponse {
+  result?: unknown;
+  error?: JsonRpcErrorPayload;
+}
+
+interface JsonRpcErrorPayload {
+  code: number;
+  message: string;
+  data?: unknown;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function randomId(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+function mapRpcError(payload: JsonRpcErrorPayload): Error {
+  switch (payload.code) {
+    case -32000: {
+      if (isPlainObject(payload.data)) {
+        return new UnsupportedTirError(payload.data as unknown as UnsupportedTirDiagnostic);
+      }
+      return new GenericRpcError(payload.code, payload.message, payload.data);
+    }
+    case -32001: {
+      if (isPlainObject(payload.data)) {
+        return new MissingTxArgError(payload.data as unknown as MissingTxArgDiagnostic);
+      }
+      return new GenericRpcError(payload.code, payload.message, payload.data);
+    }
+    case -32002: {
+      if (isPlainObject(payload.data)) {
+        return new InputNotResolvedError(payload.data as unknown as InputNotResolvedDiagnostic);
+      }
+      return new GenericRpcError(payload.code, payload.message, payload.data);
+    }
+    case -32003: {
+      if (isPlainObject(payload.data)) {
+        return new TxScriptFailureError(payload.data as unknown as TxScriptFailureDiagnostic);
+      }
+      return new GenericRpcError(payload.code, payload.message, payload.data);
+    }
+    default:
+      return new GenericRpcError(payload.code, payload.message, payload.data);
   }
+}
 
-  /**
-   * Prepare headers for JSON-RPC requests
-   */
-  private prepareHeaders(): Record<string, string> {
-    return {
-      'Content-Type': 'application/json',
-      ...this.options.headers,
+export class TrpClient {
+  constructor(private readonly options: ClientOptions) {}
+
+  async call(method: string, params: unknown): Promise<unknown> {
+    const body: JsonRpcRequest = {
+      jsonrpc: '2.0',
+      method,
+      params,
+      id: randomId(),
     };
-  }
 
-  /**
-   * Handle JSON-RPC request/response cycle
-   */
-  private async makeJsonRpcRequest<T>(
-    method: string,
-    params: any
-  ): Promise<T> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(this.options.headers ?? {}),
+    };
+
+    let response: Response;
     try {
-      // Prepare request body
-      const body = {
-        jsonrpc: '2.0',
-        method,
-        params,
-        id: crypto.randomUUID(),
-      };
-
-      // Send request
-      const response = await fetch(this.options.endpoint, {
+      response = await fetch(this.options.endpoint, {
         method: 'POST',
-        headers: this.prepareHeaders(),
+        headers,
         body: JSON.stringify(body),
       });
-
-      // Check if response is successful
-      if (!response.ok) {
-        throw new StatusCodeError(response.status, response.statusText);
-      }
-
-      // Parse response
-      const result: JsonRpcResponse<T> = await response.json();
-
-      // Handle possible error
-      if (result.error) {
-        throw new JsonRpcError(result.error.message, result.error.data);
-      }
-
-      // Return result
-      if (result.result === undefined && method !== 'trp.submit') {
-        throw new TrpError('No result in response');
-      }
-
-      return result.result!;
-    } catch (error) {
-      if (error instanceof TrpError) {
-        throw error;
-      }
-      
-      // Handle fetch errors
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new NetworkError(error.message, error);
-      }
-      
-      // Handle JSON parsing errors
-      if (error instanceof SyntaxError) {
-        throw new TrpError(`Failed to parse response: ${error.message}`, error);
-      }
-      
-      // Re-throw other errors
-      throw new TrpError(`Unknown error: ${error}`, error);
-    }
-  }
-
-  /**
-   * Convert arguments to JSON format
-   */
-  private convertArgsToJson(args: Record<string, any>, force_snake_case: boolean): Record<string, any> {
-    const result: Record<string, any> = {};
-    for (const [key, value] of Object.entries(args)) {
-      const newKey = force_snake_case
-        ? key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
-        : key;
-      result[newKey] = toJson(ArgValue.is(value) ? value : ArgValue.from(value));
-    }
-    return result;
-  }
-
-  /**
-   * Resolve a proto transaction to a concrete transaction
-   */
-  async resolve(protoTx: ProtoTxRequest): Promise<ResolveResponse> {
-    // Convert args to JSON format
-    const args = this.convertArgsToJson(protoTx.args, true );
-
-    // Convert envArgs to JSON format if they exist
-    let envArgs: Record<string, any> | undefined;
-    if (this.options.envArgs) {
-      envArgs = this.convertArgsToJson(this.options.envArgs, false);
+    } catch (err) {
+      throw new NetworkError(err instanceof Error ? err.message : String(err), { cause: err });
     }
 
-    // Prepare parameters
-    const params = {
-      tir: protoTx.tir,
-      args,
-      env: envArgs,
-    };
+    if (!response.ok) {
+      throw new HttpError(response.status, response.statusText);
+    }
 
-    return this.makeJsonRpcRequest<ResolveResponse>('trp.resolve', params);
+    let parsed: unknown;
+    try {
+      parsed = await response.json();
+    } catch (err) {
+      throw new DeserializationError(err instanceof Error ? err.message : String(err), {
+        cause: err,
+      });
+    }
+
+    if (!isPlainObject(parsed)) {
+      throw new MalformedResponseError('response body is not an object');
+    }
+
+    const rpc = parsed as JsonRpcResponse;
+
+    if (rpc.error !== undefined) {
+      if (!isPlainObject(rpc.error) || typeof (rpc.error as JsonRpcErrorPayload).code !== 'number') {
+        throw new MalformedResponseError('malformed error payload');
+      }
+      throw mapRpcError(rpc.error);
+    }
+
+    if (rpc.result === undefined) {
+      throw new MalformedResponseError('missing `result` field');
+    }
+
+    return rpc.result;
   }
 
-  /**
-   * Submit a signed transaction to the network
-   */
-  async submit(params: SubmitParams): Promise<void> {
-    await this.makeJsonRpcRequest<void>('trp.submit', params);
+  async resolve(request: ResolveParams): Promise<TxEnvelope> {
+    const result = await this.call('trp.resolve', request);
+    if (!isPlainObject(result) || typeof result.hash !== 'string' || typeof result.tx !== 'string') {
+      throw new DeserializationError('invalid TxEnvelope shape');
+    }
+    return result as unknown as TxEnvelope;
+  }
+
+  async submit(request: SubmitParams): Promise<SubmitResponse> {
+    const result = await this.call('trp.submit', request);
+    if (!isPlainObject(result) || typeof result.hash !== 'string') {
+      throw new DeserializationError('invalid SubmitResponse shape');
+    }
+    return result as unknown as SubmitResponse;
+  }
+
+  async checkStatus(hashes: string[]): Promise<CheckStatusResponse> {
+    const result = await this.call('trp.checkStatus', { hashes });
+    if (!isPlainObject(result) || !isPlainObject(result.statuses)) {
+      throw new DeserializationError('invalid CheckStatusResponse shape');
+    }
+    return result as unknown as CheckStatusResponse;
+  }
+
+  async dumpLogs(
+    cursor?: number,
+    limit?: number,
+    includePayload?: boolean,
+  ): Promise<DumpLogsResponse> {
+    const params: Record<string, unknown> = {};
+    if (cursor !== undefined) params.cursor = cursor;
+    if (limit !== undefined) params.limit = limit;
+    if (includePayload !== undefined) params.includePayload = includePayload;
+    const result = await this.call('trp.dumpLogs', params);
+    if (!isPlainObject(result) || !Array.isArray(result.entries)) {
+      throw new DeserializationError('invalid DumpLogsResponse shape');
+    }
+    return result as unknown as DumpLogsResponse;
+  }
+
+  async peekPending(limit?: number, includePayload?: boolean): Promise<PeekPendingResponse> {
+    const params: Record<string, unknown> = {};
+    if (limit !== undefined) params.limit = limit;
+    if (includePayload !== undefined) params.includePayload = includePayload;
+    const result = await this.call('trp.peekPending', params);
+    if (!isPlainObject(result) || !Array.isArray(result.entries) || typeof result.hasMore !== 'boolean') {
+      throw new DeserializationError('invalid PeekPendingResponse shape');
+    }
+    return result as unknown as PeekPendingResponse;
+  }
+
+  async peekInflight(limit?: number, includePayload?: boolean): Promise<PeekInflightResponse> {
+    const params: Record<string, unknown> = {};
+    if (limit !== undefined) params.limit = limit;
+    if (includePayload !== undefined) params.includePayload = includePayload;
+    const result = await this.call('trp.peekInflight', params);
+    if (!isPlainObject(result) || !Array.isArray(result.entries) || typeof result.hasMore !== 'boolean') {
+      throw new DeserializationError('invalid PeekInflightResponse shape');
+    }
+    return result as unknown as PeekInflightResponse;
   }
 }
