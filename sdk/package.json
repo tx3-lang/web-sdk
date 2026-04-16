@@ -1,13 +1,38 @@
 {
   "name": "tx3-sdk",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "description": "Software Development Kit for the Tx3 Language",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "module": "dist/index.esm.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./trp": {
+      "types": "./dist/trp/index.d.ts",
+      "import": "./dist/trp/index.mjs",
+      "require": "./dist/trp/index.cjs"
+    },
+    "./tii": {
+      "types": "./dist/tii/index.d.ts",
+      "import": "./dist/tii/index.mjs",
+      "require": "./dist/tii/index.cjs"
+    },
+    "./signer": {
+      "types": "./dist/signer/index.d.ts",
+      "import": "./dist/signer/index.mjs",
+      "require": "./dist/signer/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "rollup -c",
-    "dev": "rollup -c -w",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "test": "jest",
@@ -18,47 +43,38 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/txpipe/tx3.git"
+    "url": "git+https://github.com/tx3-lang/web-sdk.git",
+    "directory": "sdk"
   },
+  "keywords": [
+    "tx3",
+    "cardano",
+    "utxo",
+    "blockchain",
+    "dsl",
+    "trp"
+  ],
   "author": "TxPipe",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/txpipe/tx3/issues"
+    "url": "https://github.com/tx3-lang/web-sdk/issues"
   },
-  "homepage": "https://github.com/txpipe/tx3#readme",
-  "devDependencies": {
-    "@rollup/plugin-commonjs": "^28.0.2",
-    "@rollup/plugin-node-resolve": "^16.0.0",
-    "@rollup/plugin-typescript": "^12.1.2",
-    "@types/jest": "^29.5.12",
-    "jest": "^29.7.0",
-    "rollup": "^4.34.9",
-    "ts-jest": "^29.1.2",
-    "tslib": "^2.8.1"
-  },
-  "files": [
-    "dist"
-  ],
-  "exports": {
-    ".": {
-      "import": "./dist/index.esm.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./trp": {
-      "import": "./dist/trp/index.esm.js",
-      "require": "./dist/trp/index.js",
-      "types": "./dist/trp/index.d.ts"
-    }
-  },
-  "typesVersions": {
-    "*": {
-      "trp": [
-        "./dist/trp/index.d.ts"
-      ]
-    }
-  },
+  "homepage": "https://github.com/tx3-lang/web-sdk#readme",
   "dependencies": {
+    "@noble/curves": "^1.4.0",
+    "@noble/hashes": "^1.4.0",
+    "@scure/bip39": "^1.3.0",
+    "@stricahq/bip32ed25519": "^1.1.2",
     "bech32": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.13.8",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "tslib": "^2.8.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.8.2",
+    "undici": "^6.21.0"
   }
 }
