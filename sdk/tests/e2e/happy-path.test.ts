@@ -16,10 +16,10 @@ const partyAAddress = process.env.TEST_PARTY_A_ADDRESS;
 const partyAMnemonic = process.env.TEST_PARTY_A_MNEMONIC;
 const partyBAddress = process.env.TEST_PARTY_B_ADDRESS;
 
-const integrationTest = endpoint && partyAAddress && partyAMnemonic ? test : test.skip;
+const e2eTest = endpoint && partyAAddress && partyAMnemonic ? test : test.skip;
 
-describe('Facade integration', () => {
-  integrationTest('resolve -> sign -> submit -> waitForConfirmed', async () => {
+describe('Facade e2e', () => {
+  e2eTest('resolve -> sign -> submit -> waitForConfirmed', async () => {
     const protocol = await Protocol.fromFile(FIXTURE);
     const signer = await CardanoSigner.fromMnemonic(partyAAddress as string, partyAMnemonic as string);
     const headers = apiKey ? { 'dmtr-api-key': apiKey } : undefined;

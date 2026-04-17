@@ -73,12 +73,12 @@ const protocol = Protocol.fromString(await (await fetch("/transfer.tii")).text()
 ## Testing
 
 - Unit tests are co-located with source files under `sdk/src/**`.
-- Integration tests live under `sdk/tests/integration/` and run separately.
+- End-to-end (e2e) tests live under `sdk/tests/e2e/` and run separately.
 
 ```bash
 # from web-sdk/sdk
 npm run test:unit
-npm run test:integration
+npm run test:e2e
 ```
 
 ## License
