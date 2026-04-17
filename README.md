@@ -70,6 +70,17 @@ const protocol = Protocol.fromString(await (await fetch("/transfer.tii")).text()
 - **TII schema:** v1beta0
 - **Runtime:** Node.js 18+, modern browsers (ESM), Bun, Deno
 
+## Testing
+
+- Unit tests are co-located with source files under `sdk/src/**`.
+- Integration tests live under `sdk/tests/integration/` and run separately.
+
+```bash
+# from web-sdk/sdk
+npm run test:unit
+npm run test:integration
+```
+
 ## License
 
 Apache-2.0

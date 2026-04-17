@@ -1,11 +1,11 @@
 import { ed25519 } from '@noble/curves/ed25519';
-import { Ed25519Signer } from '../../src/signer/ed25519.js';
+import { Ed25519Signer } from './ed25519.js';
 import {
   InvalidHashError,
   InvalidPrivateKeyError,
   InvalidMnemonicError,
-} from '../../src/signer/errors.js';
-import { bytesToHex, hexToBytes } from '../../src/core/bytes.js';
+} from './errors.js';
+import { bytesToHex, hexToBytes } from '../core/bytes.js';
 
 const TEST_KEY_HEX = '9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60';
 const TEST_ADDRESS = 'addr_test1qz_dummy';

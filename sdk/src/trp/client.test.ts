@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { TrpClient } from '../../src/trp/client.js';
+import { TrpClient } from './client.js';
 import {
   NetworkError,
   HttpError,
@@ -10,7 +10,7 @@ import {
   MissingTxArgError,
   InputNotResolvedError,
   TxScriptFailureError,
-} from '../../src/trp/errors.js';
+} from './errors.js';
 
 const ENDPOINT = 'http://localhost:9999/rpc';
 

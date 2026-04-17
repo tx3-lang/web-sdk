@@ -4,9 +4,9 @@ import {
   toJson,
   fromJson,
   type UtxoRef,
-} from '../../src/core/args.js';
-import { ArgValueError } from '../../src/core/errors.js';
-import { hexToBytes, bytesToHex } from '../../src/core/bytes.js';
+} from './args.js';
+import { ArgValueError } from './errors.js';
+import { hexToBytes, bytesToHex } from './bytes.js';
 
 describe('ArgValue constructors', () => {
   test('fromString', () => {

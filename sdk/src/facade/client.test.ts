@@ -1,24 +1,24 @@
 import { jest } from '@jest/globals';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Protocol } from '../../src/tii/protocol.js';
-import { TrpClient } from '../../src/trp/client.js';
-import { Tx3Client } from '../../src/facade/client.js';
-import { Party } from '../../src/facade/party.js';
-import { PollConfig } from '../../src/facade/poll.js';
-import { Ed25519Signer } from '../../src/signer/ed25519.js';
+import { Protocol } from '../tii/protocol.js';
+import { TrpClient } from '../trp/client.js';
+import { Tx3Client } from './client.js';
+import { Party } from './party.js';
+import { PollConfig } from './poll.js';
+import { Ed25519Signer } from '../signer/ed25519.js';
 import {
   UnknownPartyError,
   MissingParamsError,
   SubmitHashMismatchError,
   FinalizedFailedError,
   FinalizedTimeoutError,
-} from '../../src/facade/errors.js';
-import type { TxWitness } from '../../src/trp/spec.js';
-import type { Signer } from '../../src/signer/signer.js';
+} from './errors.js';
+import type { TxWitness } from '../trp/spec.js';
+import type { Signer } from '../signer/signer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FIXTURE = path.resolve(__dirname, '../fixtures/transfer.tii');
+const FIXTURE = path.resolve(__dirname, '../../tests/fixtures/transfer.tii');
 const SENDER_KEY = 'aa'.repeat(32);
 const SENDER_ADDR = 'addr_test1_sender';
 const RECEIVER_ADDR = 'addr_test1_receiver';
@@ -74,7 +74,7 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-describe('Facade integration', () => {
+describe('Facade unit behavior', () => {
   test('happy path: resolve → sign → submit → waitForConfirmed', async () => {
     const resolveResponse = jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' });
     const submitResponse = jsonRpcOk({ hash: TX_HASH });
@@ -342,7 +342,7 @@ describe('Facade integration', () => {
 
 describe('re-export canary', () => {
   test('top-level re-exports are defined', async () => {
-    const mod = await import('../../src/index.js');
+    const mod = await import('../index.js');
     expect(mod.Tx3Client).toBeDefined();
     expect(mod.Party).toBeDefined();
     expect(mod.PollConfig).toBeDefined();

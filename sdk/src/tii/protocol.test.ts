@@ -1,13 +1,13 @@
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Protocol } from '../../src/tii/protocol.js';
+import { Protocol } from './protocol.js';
 import {
   UnknownTxError,
   UnknownProfileError,
-} from '../../src/tii/errors.js';
+} from './errors.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FIXTURE = path.resolve(__dirname, '../fixtures/transfer.tii');
+const FIXTURE = path.resolve(__dirname, '../../tests/fixtures/transfer.tii');
 
 describe('Protocol', () => {
   let protocol: Protocol;

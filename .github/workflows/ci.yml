@@ -31,7 +31,7 @@ jobs:
 
       - name: Run unit tests
         working-directory: ./sdk
-        run: npm run test -- --testPathIgnorePatterns=tests/facade/integration.test.ts
+        run: npm run test:unit
 
   integration:
     name: integration
@@ -69,4 +69,4 @@ jobs:
 
       - name: Run integration tests
         working-directory: ./sdk
-        run: npm run test -- tests/facade/integration.test.ts
+        run: npm run test:integration
