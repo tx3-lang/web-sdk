@@ -52,6 +52,4 @@ jobs:
         run: npm --workspace sdk run build
 
       - name: Publish package
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm --workspace sdk publish --access public --provenance
