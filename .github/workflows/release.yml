@@ -51,5 +51,8 @@ jobs:
       - name: Build package
         run: npm --workspace sdk run build
 
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
       - name: Publish package
         run: npm --workspace sdk publish --access public --provenance
