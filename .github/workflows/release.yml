@@ -25,7 +25,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
           registry-url: https://registry.npmjs.org
@@ -50,9 +50,6 @@ jobs:
 
       - name: Build package
         run: npm --workspace sdk run build
-
-      - name: Upgrade npm for trusted publishing
-        run: npm install -g npm@latest
 
       - name: Publish package
         run: npm --workspace sdk publish --access public --provenance
