@@ -34,6 +34,8 @@ describe('Ed25519Signer', () => {
     );
   });
 
+  const req = (txHashHex: string) => ({ txHashHex, txCborHex: '' });
+
   test('sign produces correct public key and valid signature', async () => {
     const keyBytes = hexToBytes(TEST_KEY_HEX);
     const signer = new Ed25519Signer(TEST_ADDRESS, keyBytes);
@@ -41,7 +43,7 @@ describe('Ed25519Signer', () => {
     const expectedPubkey = ed25519.getPublicKey(keyBytes);
     const hashHex = 'aa'.repeat(32);
 
-    const witness = await signer.sign(hashHex);
+    const witness = await signer.sign(req(hashHex));
 
     expect(witness.type).toBe('vkey');
     expect(witness.key.contentType).toBe('hex');
@@ -56,17 +58,17 @@ describe('Ed25519Signer', () => {
 
   test('sign rejects invalid hash hex', async () => {
     const signer = Ed25519Signer.fromHex(TEST_ADDRESS, TEST_KEY_HEX);
-    await expect(signer.sign('not-hex')).rejects.toThrow(InvalidHashError);
+    await expect(signer.sign(req('not-hex'))).rejects.toThrow(InvalidHashError);
   });
 
   test('sign rejects wrong hash length', async () => {
     const signer = Ed25519Signer.fromHex(TEST_ADDRESS, TEST_KEY_HEX);
-    await expect(signer.sign('aabb')).rejects.toThrow(InvalidHashError);
+    await expect(signer.sign(req('aabb'))).rejects.toThrow(InvalidHashError);
   });
 
   test('sign returns a Promise', () => {
     const signer = Ed25519Signer.fromHex(TEST_ADDRESS, TEST_KEY_HEX);
-    const result = signer.sign('aa'.repeat(32));
+    const result = signer.sign(req('aa'.repeat(32)));
     expect(result).toBeInstanceOf(Promise);
   });
 

@@ -13,7 +13,7 @@ import {
   InvalidPrivateKeyError,
   UnsupportedPaymentCredentialError,
 } from './errors.js';
-import type { Signer } from './signer.js';
+import type { SignRequest, Signer } from './signer.js';
 
 export class CardanoSigner implements Signer {
   readonly #address: string;
@@ -88,10 +88,10 @@ export class CardanoSigner implements Signer {
     return this.#address;
   }
 
-  async sign(txHashHex: string): Promise<TxWitness> {
+  async sign(request: SignRequest): Promise<TxWitness> {
     let hashBytes: Uint8Array;
     try {
-      hashBytes = hexToBytes(txHashHex);
+      hashBytes = hexToBytes(request.txHashHex);
     } catch (err) {
       throw InvalidHashError.hexDecode(err);
     }

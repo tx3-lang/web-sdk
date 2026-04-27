@@ -71,7 +71,7 @@ export class TxBuilder {
     const resolveReq = invocation.intoResolveRequest();
     const envelope = await this.#trp.resolve(resolveReq);
 
-    const signers: { name: string; address: string; signer: { sign(txHashHex: string): Promise<import('../trp/spec.js').TxWitness> } }[] = [];
+    const signers: { name: string; address: string; signer: import('../signer/signer.js').Signer }[] = [];
     for (const [name, party] of this.#parties) {
       if (party.kind === 'signer') {
         signers.push({

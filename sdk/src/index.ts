@@ -10,7 +10,14 @@ export { SubmittedTx } from './facade/submitted.js';
 // Signers (§3.5)
 export { CardanoSigner } from './signer/cardano.js';
 export { Ed25519Signer } from './signer/ed25519.js';
-export type { Signer } from './signer/signer.js';
+export {
+  Cip30Signer,
+  Cip30AdapterError,
+  cip30Party,
+  decodeWitnessSet,
+} from './signer/cip30.js';
+export type { Cip30Api } from './signer/cip30.js';
+export type { Signer, SignRequest } from './signer/signer.js';
 
 // TII (§3.1)
 export { Protocol } from './tii/protocol.js';

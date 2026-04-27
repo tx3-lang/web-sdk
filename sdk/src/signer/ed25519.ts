@@ -8,7 +8,7 @@ import {
   InvalidMnemonicError,
   InvalidPrivateKeyError,
 } from './errors.js';
-import type { Signer } from './signer.js';
+import type { SignRequest, Signer } from './signer.js';
 
 export class Ed25519Signer implements Signer {
   readonly #address: string;
@@ -46,10 +46,10 @@ export class Ed25519Signer implements Signer {
     return this.#address;
   }
 
-  async sign(txHashHex: string): Promise<TxWitness> {
+  async sign(request: SignRequest): Promise<TxWitness> {
     let hashBytes: Uint8Array;
     try {
-      hashBytes = hexToBytes(txHashHex);
+      hashBytes = hexToBytes(request.txHashHex);
     } catch (err) {
       throw InvalidHashError.hexDecode(err);
     }
