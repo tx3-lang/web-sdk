@@ -159,21 +159,25 @@ single tx), call `decodeWitnessSet` directly and attach each witness via
 ### Manual witness attachment
 
 When a witness is produced outside any registered `Signer` — for example by an
-external wallet app or a remote signing service — attach it to the `ResolvedTx`
-before `sign()`:
+external wallet app or a remote signing service — resolve the transaction
+first, hand the resolved hash (or full tx CBOR) to the wallet, then attach the
+returned witness before `sign()`:
 
 ```ts
 import type { TxWitness } from "tx3-sdk";
 
-const witness: TxWitness = /* from external wallet */;
-
-const status = await tx3
+const resolved = await tx3
   .tx("transfer")
   .arg("quantity", 10_000_000n)
-  .resolve()
-  .then((r) => r.addWitness(witness).sign())
-  .then((s) => s.submit())
-  .then((sub) => sub.waitForConfirmed(PollConfig.default()));
+  .resolve();
+
+// Hand `resolved.hash` (or `resolved.txHex`) to the external wallet and
+// get back a witness. The wallet needs the resolved tx to sign.
+const witness: TxWitness = /* sign resolved.hash with external wallet */;
+
+const signed = await resolved.addWitness(witness).sign();
+const submitted = await signed.submit();
+const status = await submitted.waitForConfirmed(PollConfig.default());
 ```
 
 `addWitness` may be called any number of times; manual witnesses are appended after registered-signer witnesses in attach order.
