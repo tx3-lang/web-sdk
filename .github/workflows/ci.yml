@@ -33,6 +33,27 @@ jobs:
         working-directory: ./sdk
         run: npm run test:unit
 
+  codegen:
+    name: codegen
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup tx3 toolchain
+        uses: tx3-lang/actions/setup@v1
+
+      - name: Render and verify codegen plugin
+        run: bash .github/scripts/codegen-check.sh
+
   e2e:
     name: e2e
     runs-on: ubuntu-latest
