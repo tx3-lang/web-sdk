@@ -3,13 +3,11 @@
 # CI artifact — not part of the SDK.
 #
 # Renders the .trix/client-lib codegen plugin against the shared transfer
-# fixture and verifies the result. The subject under test is the Handlebars
-# templates + tx3c integration, not the SDK runtime.
+# fixture and verifies the result the way a consumer would: the rendered module
+# is type-checked in a throwaway project with the published `tx3-sdk` installed
+# from npm — no path overrides into the SDK source tree.
 #
-# Steps: invoke `tx3c codegen`, assert the expected file exists, smoke-check
-# the generated surface, and type-check the output against this repo's SDK.
-#
-# Requires `tx3c` on PATH and the SDK's node_modules installed.
+# Requires `tx3c` and `npm` on PATH.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -33,9 +31,19 @@ for sym in \
   grep -qF "$sym" "$gen/protocol.ts" || { echo "generated protocol.ts missing: $sym"; exit 1; }
 done
 
-# Type-check the rendered module against this repo's SDK sources.
-printf '{"compilerOptions":{"target":"ES2022","module":"ESNext","moduleResolution":"bundler","lib":["ES2022","DOM"],"strict":true,"exactOptionalPropertyTypes":true,"skipLibCheck":true,"noEmit":true,"types":["node"],"typeRoots":["%s/sdk/node_modules/@types"],"baseUrl":".","paths":{"tx3-sdk":["%s/sdk/src/index.ts"],"tx3-sdk/trp":["%s/sdk/src/trp/index.ts"]}},"include":["protocol.ts"]}\n' \
-  "$repo_root" "$repo_root" "$repo_root" > "$gen/tsconfig.json"
-"$repo_root/sdk/node_modules/.bin/tsc" -p "$gen/tsconfig.json"
+# Type-check the rendered module in a fresh consumer project with `tx3-sdk`
+# installed from npm, exactly as an end user would consume it.
+proj="$gen/consumer"
+mkdir -p "$proj"
+cp "$gen/protocol.ts" "$proj/protocol.ts"
+cd "$proj"
+npm init -y >/dev/null
+npm pkg set type=module >/dev/null
+npm install --no-audit --no-fund tx3-sdk@latest typescript @types/node
+./node_modules/.bin/tsc \
+  --noEmit --strict --exactOptionalPropertyTypes \
+  --target ES2022 --module nodenext --moduleResolution nodenext \
+  --skipLibCheck \
+  protocol.ts
 
 echo "codegen check passed"
