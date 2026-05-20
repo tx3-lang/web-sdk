@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup tx3 toolchain
+        uses: tx3-lang/actions/setup@v1
+
       - name: Run unit tests
         working-directory: ./sdk
         run: npm run test:unit
