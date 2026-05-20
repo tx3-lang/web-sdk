@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -55,6 +55,20 @@ describe('codegen client-lib plugin', () => {
 
       const tsc = join(sdkRoot, 'node_modules/.bin/tsc');
       execFileSync(tsc, ['-p', join(outDir, 'tsconfig.json')], { stdio: 'pipe' });
+
+      // Smoke-test the generated surface: the template must emit protocol
+      // identity, the per-transaction types, and the profile surface.
+      const protocolSrc = readFileSync(protocolPath, 'utf8');
+      for (const symbol of [
+        'TARGET_TII_VERSION',
+        'export type TransferParams',
+        'TRANSFER_TIR',
+        'export class Client',
+        'async transfer(',
+        'PROFILES',
+      ]) {
+        expect(protocolSrc).toContain(symbol);
+      }
     } catch (err) {
       const e = err as { stdout?: Buffer; stderr?: Buffer };
       const stdout = e.stdout?.toString() ?? '';
