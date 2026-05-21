@@ -27,7 +27,7 @@ Make sure you have the `trix` compiler installed:
 
 ```bash
 # Install tx3up installer
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tx3-lang/up/releases/latest/download/tx3up-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tx3-lang/tx3up/releases/latest/download/tx3up-installer.sh | sh
 
 # Install trix
 tx3up
@@ -176,7 +176,7 @@ The plugin automatically:
 **Solution:** Install the trix tool:
 ```bash
 # Install tx3up installer
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tx3-lang/up/releases/latest/download/tx3up-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tx3-lang/tx3up/releases/latest/download/tx3up-installer.sh | sh
 
 # Install trix
 tx3up

@@ -9,7 +9,7 @@ export class TrixInstaller {
         console.log(chalk.blue('📥 Installing tx3up...'));
       }
       
-      const tx3upCommand = `curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tx3-lang/up/releases/latest/download/tx3up-installer.sh | sh`;
+      const tx3upCommand = `curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tx3-lang/tx3up/releases/latest/download/tx3up-installer.sh | sh`;
       
       execSync(tx3upCommand, { 
         stdio: verbose ? 'inherit' : 'pipe'

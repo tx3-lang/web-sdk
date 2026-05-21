@@ -139,7 +139,7 @@ export async function installCommand(options: InstallOptions = {}): Promise<void
         } else {
           console.log(chalk.yellow('⚠️ trix installation failed, but continuing with TX3 setup'));
         }
-        console.log(chalk.yellow(`You can install trix manually later with: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tx3-lang/up/releases/latest/download/tx3up-installer.sh | sh && tx3up`));
+        console.log(chalk.yellow(`You can install trix manually later with: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tx3-lang/tx3up/releases/latest/download/tx3up-installer.sh | sh && tx3up`));
       }
     }
 

@@ -125,7 +125,7 @@ The installer can optionally install the trix (TX3 package manager) via tx3up:
 
 **Manual installation commands:**
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tx3-lang/up/releases/latest/download/tx3up-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tx3-lang/tx3up/releases/latest/download/tx3up-installer.sh | sh
 tx3up
 ```
 

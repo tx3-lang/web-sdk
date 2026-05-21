@@ -39,7 +39,7 @@ export function displayTrixInstallationInstructions(): void {
   console.log(chalk.red('❌ Trix compiler not found!'));
   console.log(chalk.yellow('\n📦 To install trix, run these commands:'));
   console.log(chalk.cyan('\n# Install tx3up installer'));
-  console.log(chalk.white('curl --proto \'=https\' --tlsv1.2 -LsSf https://github.com/tx3-lang/up/releases/latest/download/tx3up-installer.sh | sh'));
+  console.log(chalk.white('curl --proto \'=https\' --tlsv1.2 -LsSf https://github.com/tx3-lang/tx3up/releases/latest/download/tx3up-installer.sh | sh'));
   console.log(chalk.cyan('\n# Install trix'));
   console.log(chalk.white('tx3up'));
   console.log(chalk.yellow('\n💡 After installation, restart your development server.'));
