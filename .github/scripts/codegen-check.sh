@@ -29,8 +29,8 @@ for sym in \
   'export class Client' \
   'transfer(' \
   'export type Profile' \
-  '_LOCAL_PROFILE' \
-  '_PREPROD_PROFILE' \
+  'LOCAL_PROFILE' \
+  'PREPROD_PROFILE' \
   'Tx3ClientBuilder.fromParts' \
   'withPartyUnchecked'; do
   grep -qF "$sym" "$gen/protocol.ts" || { echo "generated protocol.ts missing: $sym"; exit 1; }
