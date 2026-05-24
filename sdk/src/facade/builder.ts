@@ -1,84 +1,85 @@
-import type { ArgMap } from '../core/index.js';
-import type { Protocol } from '../tii/protocol.js';
+import type { ArgMap, TirEnvelope } from '../core/index.js';
 import type { TrpClient } from '../trp/client.js';
-import { MissingParamsError, UnknownPartyError } from './errors.js';
-import type { Party } from './party.js';
-import { partyAddress } from './party.js';
+import type { ResolveParams } from '../trp/spec.js';
+import { type Party, partyAddress } from './party.js';
 import { ResolvedTx } from './resolved.js';
 
+/**
+ * Builder for transaction invocation.
+ *
+ * Holds the resolve inputs directly: the TIR envelope, the environment values
+ * from the selected profile (with builder-supplied overrides already folded
+ * in), the bound parties, and the typed args. Drives a single `resolve()` path
+ * regardless of whether the upstream was a runtime-loaded `Protocol` or
+ * codegen-embedded fragments.
+ */
 export class TxBuilder {
-  readonly #protocol: Protocol;
+  readonly #tir: TirEnvelope;
   readonly #trp: TrpClient;
-  readonly #txName: string;
-  readonly #args: ArgMap;
-  readonly #parties: Map<string, Party>;
-  readonly #profile: string | undefined;
+  #env: ArgMap = {};
+  readonly #parties: Map<string, Party> = new Map();
+  readonly #args: ArgMap = {};
 
-  constructor(
-    protocol: Protocol,
-    trp: TrpClient,
-    txName: string,
-    parties: Map<string, Party>,
-    profile: string | undefined,
-  ) {
-    this.#protocol = protocol;
+  constructor(trp: TrpClient, tir: TirEnvelope) {
     this.#trp = trp;
-    this.#txName = txName;
-    this.#args = {};
-    this.#parties = parties;
-    this.#profile = profile;
+    this.#tir = tir;
   }
 
-  arg(name: string, value: unknown): TxBuilder {
+  /** Sets the environment values applied to this transaction. */
+  env(env: ArgMap): this {
+    this.#env = { ...env };
+    return this;
+  }
+
+  /**
+   * Attaches party definitions (signers or read-only addresses). Names are
+   * matched case-insensitively; later entries override earlier ones.
+   */
+  parties(parties: Iterable<readonly [string, Party]>): this {
+    for (const [name, party] of parties) {
+      this.#parties.set(name.toLowerCase(), party);
+    }
+    return this;
+  }
+
+  /** Adds a single argument (case-insensitive name). */
+  arg(name: string, value: unknown): this {
     this.#args[name.toLowerCase()] = value;
     return this;
   }
 
-  args(map: Record<string, unknown>): TxBuilder {
-    for (const [key, value] of Object.entries(map)) {
-      this.#args[key.toLowerCase()] = value;
+  /** Adds multiple arguments (case-insensitive names). */
+  args(map: Record<string, unknown>): this {
+    for (const [k, v] of Object.entries(map)) {
+      this.#args[k.toLowerCase()] = v;
     }
     return this;
   }
 
+  /** Resolves the transaction through the TRP client. */
   async resolve(): Promise<ResolvedTx> {
-    const invocation = this.#protocol.invoke(
-      this.#txName,
-      this.#profile,
-    );
-
-    const knownParties = new Set(
-      Object.keys(this.#protocol.parties()).map((k) => k.toLowerCase()),
-    );
-
+    const merged: ArgMap = {};
+    for (const [k, v] of Object.entries(this.#env)) merged[k] = v;
     for (const [name, party] of this.#parties) {
-      if (!knownParties.has(name)) {
-        throw new UnknownPartyError(name);
-      }
-      invocation.setArg(name, partyAddress(party));
+      merged[name] = partyAddress(party);
     }
+    for (const [k, v] of Object.entries(this.#args)) merged[k] = v;
 
-    invocation.setArgs(this.#args);
+    const request: ResolveParams = {
+      tir: this.#tir,
+      args: merged,
+    };
 
-    const missing = [...invocation.unspecifiedParams()]
-      .map(([k]) => k)
-      .sort();
+    const envelope = await this.#trp.resolve(request);
 
-    if (missing.length > 0) {
-      throw new MissingParamsError(missing);
-    }
-
-    const resolveReq = invocation.intoResolveRequest();
-    const envelope = await this.#trp.resolve(resolveReq);
-
-    const signers: { name: string; address: string; signer: import('../signer/signer.js').Signer }[] = [];
+    const signers: {
+      name: string;
+      address: string;
+      signer: import('../signer/signer.js').Signer;
+    }[] = [];
     for (const [name, party] of this.#parties) {
       if (party.kind === 'signer') {
-        signers.push({
-          name,
-          address: party.address,
-          signer: party.signer,
-        });
+        signers.push({ name, address: party.address, signer: party.signer });
       }
     }
 

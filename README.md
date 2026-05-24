@@ -22,9 +22,7 @@ npm install tx3-sdk
 
 ```ts
 import {
-  Tx3Client,
   Protocol,
-  TrpClient,
   Party,
   Ed25519Signer,
   PollConfig,
@@ -33,18 +31,18 @@ import {
 // 1. Load a compiled .tii protocol
 const protocol = await Protocol.fromFile("./transfer.tii");
 
-// 2. Connect to a TRP server
-const trp = new TrpClient({ endpoint: "http://localhost:3000/rpc" });
-
-// 3. Configure signer and parties
+// 2. Build a client: configure TRP, profile, and parties on the builder
 const signer = Ed25519Signer.fromHex("addr_test1...", "deadbeef...");
 
-const tx3 = new Tx3Client(protocol, trp)
+const tx3 = protocol
+  .client()
+  .trpEndpoint("http://localhost:3000/rpc")
   .withProfile("preprod")
   .withParty("sender", Party.signer(signer))
-  .withParty("receiver", Party.address("addr_test1..."));
+  .withParty("receiver", Party.address("addr_test1..."))
+  .build();
 
-// 4. Build, resolve, sign, submit, and wait for confirmation
+// 3. Build, resolve, sign, submit, and wait for confirmation
 const status = await tx3
   .tx("transfer")
   .arg("quantity", 10_000_000n)
@@ -56,14 +54,24 @@ const status = await tx3
 console.log(status.stage); // "confirmed"
 ```
 
+All fallible validation — TRP endpoint present, profile declared, every bound
+party declared — happens inside `build()`, which throws `MissingTrpEndpointError`,
+`UnknownProfileError`, or `UnknownPartyError` (all rooted at `Tx3Error`, discriminable
+via `instanceof`). Optional setters never throw, so chains stay fluent. Profile
+selection is **builder-only**: there is no profile-switching method on the built
+client. Switching profiles requires a new builder.
+
 ## Concepts
 
 | SDK Type | Glossary Term | Description |
 |---|---|---|
-| `Protocol` | TII / Protocol | Loaded `.tii` exposing transactions, parties, profiles |
-| `Tx3Client` | Facade | Entry point holding protocol, TRP client, and party bindings |
-| `TxBuilder` | Invocation builder | Collects args, resolves via TRP |
+| `Protocol` | TII / Protocol | Loaded `.tii` exposing transactions, parties, profiles. `protocol.client()` returns a fresh `Tx3ClientBuilder` |
+| `Tx3ClientBuilder` | Client builder | Fluent builder seeded by `Protocol.client()` or `Tx3ClientBuilder.fromParts(...)`; absorbs all fallible validation in `build()` |
+| `Tx3Client` | Facade | Output of `Tx3ClientBuilder.build()` — owns deconstructed protocol parts, TRP client, profile, and party bindings |
+| `TxBuilder` | Invocation builder | Source-agnostic; collects args, resolves via TRP |
 | `Party` | Party | `Party.address(...)` (read-only) or `Party.signer(...)` (signing) |
+| `Profile` | Profile | `{ environment, parties }` value baked into the client; embedded by codegen plugins, decomposed from `Protocol` by `fromProtocol` |
+| `MissingTrpEndpointError` / `UnknownPartyError` | Builder errors | Thrown by `build()`; subclass of `BuilderError`, rooted at `Tx3Error` |
 | `Signer` | Signer | Interface producing a `TxWitness` for a `SignRequest` |
 | `SignRequest` | SignRequest | Input passed to `Signer.sign`: `txHashHex` + `txCborHex` |
 | `CardanoSigner` | Cardano Signer | BIP32-Ed25519 signer at `m/1852'/1815'/0'/0/0` |
@@ -92,6 +100,25 @@ import { CardanoSigner, Cip30Signer, cip30Party } from "tx3-sdk/signer";
 
 ```ts
 const protocol = Protocol.fromString(await (await fetch("/transfer.tii")).text());
+```
+
+### Skipping the runtime `.tii` (codegen flow)
+
+If you've run `trix codegen` to generate typed bindings, your generated `Client`
+embeds the per-transaction TIR envelopes and per-profile data at codegen time —
+no `.tii` artifact at runtime. Under the hood it seeds the same builder via
+`Tx3ClientBuilder.fromParts(transactions, profiles, knownParties)` and routes
+typed per-party setters through `withPartyUnchecked`. You can also call
+`fromParts` directly from hand-written code:
+
+```ts
+import { Tx3ClientBuilder, Party } from "tx3-sdk";
+
+const tx3 = Tx3ClientBuilder
+  .fromParts(transactions, profiles, ["sender", "receiver"])
+  .trpEndpoint("http://localhost:3000/rpc")
+  .withPartyUnchecked("sender", Party.signer(signer))
+  .build();
 ```
 
 ### Low-level TRP client
@@ -141,15 +168,18 @@ class MySigner implements Signer {
 wallet (Eternl, Lace, Nami, …) directly into the standard chain:
 
 ```ts
-import { Tx3Client, Party } from "tx3-sdk";
+import { Protocol, Party } from "tx3-sdk";
 import { cip30Party } from "tx3-sdk/signer";
 
 const api = await window.cardano.eternl.enable();
 
-const tx3 = new Tx3Client(protocol, trp)
+const tx3 = protocol
+  .client()
+  .trpEndpoint("http://localhost:3000/rpc")
   .withProfile("preprod")
   .withParty("sender", await cip30Party(api))
-  .withParty("receiver", Party.address("addr_test1..."));
+  .withParty("receiver", Party.address("addr_test1..."))
+  .build();
 ```
 
 For multi-key wallets (where one wallet returns several vkey witnesses for a

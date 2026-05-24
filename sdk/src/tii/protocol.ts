@@ -1,6 +1,13 @@
+import { Tx3ClientBuilder } from '../facade/clientBuilder.js';
 import { Invocation } from './invocation.js';
 import { ParamType, paramsFromSchema, type ParamMap } from './paramType.js';
-import type { PartySpec, TiiFile, Transaction } from './spec.js';
+import type {
+  JsonSchema,
+  PartySpec,
+  Profile,
+  TiiFile,
+  Transaction,
+} from './spec.js';
 import {
   InvalidJsonError,
   UnknownProfileError,
@@ -47,6 +54,22 @@ export class Protocol {
 
   parties(): Record<string, PartySpec> {
     return this.spec.parties ?? {};
+  }
+
+  profiles(): Record<string, Profile> {
+    return this.spec.profiles ?? {};
+  }
+
+  environment(): JsonSchema | undefined {
+    return this.spec.environment;
+  }
+
+  /**
+   * Returns a fresh `Tx3ClientBuilder` seeded with this protocol's transactions,
+   * profiles, and declared parties. Entry point for the dynamic flow.
+   */
+  client(): Tx3ClientBuilder {
+    return Tx3ClientBuilder.fromProtocol(this);
   }
 
   private ensureTx(name: string): Transaction {

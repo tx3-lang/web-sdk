@@ -3,9 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { CardanoSigner } from '../../src/signer/cardano.js';
 import { Party } from '../../src/facade/party.js';
 import { PollConfig } from '../../src/facade/poll.js';
-import { Tx3Client } from '../../src/facade/client.js';
 import { Protocol } from '../../src/tii/protocol.js';
-import { TrpClient } from '../../src/trp/client.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.resolve(__dirname, '../fixtures/transfer.tii');
@@ -22,16 +20,22 @@ describe('Facade e2e', () => {
   e2eTest('resolve -> sign -> submit -> waitForConfirmed', async () => {
     const protocol = await Protocol.fromFile(FIXTURE);
     const signer = await CardanoSigner.fromMnemonic(partyAAddress as string, partyAMnemonic as string);
-    const headers = apiKey ? { 'dmtr-api-key': apiKey } : undefined;
-
-    const trp = new TrpClient({ endpoint: endpoint as string, headers });
     const receiver = partyBAddress ?? partyAAddress;
 
-    const tx3 = new Tx3Client(protocol, trp)
-      .withProfile('preprod')
+    let builder = protocol
+      .client()
+      .trpEndpoint(endpoint as string)
+      .withProfile('preprod');
+
+    if (apiKey) {
+      builder = builder.withHeader('dmtr-api-key', apiKey);
+    }
+
+    const tx3 = builder
       .withParty('sender', Party.signer(signer))
       .withParty('receiver', Party.address(receiver as string))
-      .withParty('middleman', Party.address(receiver as string));
+      .withParty('middleman', Party.address(receiver as string))
+      .build();
 
     const status = await tx3
       .tx('transfer')
