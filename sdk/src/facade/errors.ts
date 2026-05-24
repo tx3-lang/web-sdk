@@ -1,9 +1,21 @@
 import { Tx3Error } from '../core/errors.js';
 import type { TxStage } from '../trp/spec.js';
 
-export abstract class ResolutionError extends Tx3Error {}
+/**
+ * Errors raised by `Tx3ClientBuilder.build()` and by late-binding setters on
+ * the built `Tx3Client`. Discriminate the group via `instanceof BuilderError`,
+ * or pick a specific variant (`MissingTrpEndpointError`, `UnknownPartyError`).
+ * `UnknownProfileError` and `UnknownTxError` are re-used from `tii/errors`.
+ */
+export abstract class BuilderError extends Tx3Error {}
 
-export class UnknownPartyError extends ResolutionError {
+export class MissingTrpEndpointError extends BuilderError {
+  constructor() {
+    super('TRP endpoint not configured');
+  }
+}
+
+export class UnknownPartyError extends BuilderError {
   readonly party: string;
 
   constructor(party: string) {
@@ -11,6 +23,8 @@ export class UnknownPartyError extends ResolutionError {
     this.party = party;
   }
 }
+
+export abstract class ResolutionError extends Tx3Error {}
 
 export class MissingParamsError extends ResolutionError {
   readonly params: string[];

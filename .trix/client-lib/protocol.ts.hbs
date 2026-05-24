@@ -2,13 +2,13 @@
 // Target TII version: {{tii.tii.version}}
 
 import {
-    TrpClient,
-    type ClientOptions,
-    type SubmitParams,
-    type SubmitResponse,
-    type TxEnvelope,
-} from "tx3-sdk/trp";
-import type { ArgValue } from "tx3-sdk";
+    Party,
+    type Profile as SdkProfile,
+    Tx3Client,
+    Tx3ClientBuilder,
+    type TxBuilder,
+} from "tx3-sdk";
+import type { ClientOptions } from "tx3-sdk/trp";
 
 /** Protocol identity, embedded from the TII at codegen time. */
 export const PROTOCOL_NAME = "{{tii.protocol.name}}";
@@ -21,14 +21,6 @@ export const TARGET_TII_VERSION = "{{tii.tii.version}}";
 export const ENVIRONMENT_SCHEMA = {{{json tii.environment}}} as const;
 
 {{/if}}
-/**
- * Profiles embedded from the TII, keyed by name. Each entry carries that
- * profile's `environment` values and `parties` addresses.
- */
-export const PROFILES = {{{json tii.profiles}}} as const;
-
-export type ProfileName = keyof typeof PROFILES;
-
 type TirEnvelope = {
     content: string;
     encoding: "hex" | "base64";
@@ -36,12 +28,7 @@ type TirEnvelope = {
 };
 
 {{#each tii.transactions}}
-export type {{pascalCase @key}}Params = {
-{{#each params.properties}}
-    {{camelCase @key}}: ArgValue | {{schemaTypeFor this "typescript"}};
-{{/each}}
-};
-
+/** Embedded TIR envelope for the `{{@key}}` transaction. */
 export const {{constantCase @key}}_TIR = {
     content: "{{tir.content}}",
     encoding: "{{tir.encoding}}",
@@ -49,40 +36,75 @@ export const {{constantCase @key}}_TIR = {
 } as const satisfies TirEnvelope;
 
 {{/each}}
-/** Thin protocol facade over the TRP client. */
-export class Client {
-    readonly #trp: TrpClient;
-    readonly #environment?: Record<string, unknown>;
-    readonly #parties: Record<string, string>;
-
-    constructor(options: ClientOptions, profile?: ProfileName) {
-        this.#trp = new TrpClient(options);
-        if (profile !== undefined) {
-            const selected = PROFILES[profile];
-            this.#environment = selected.environment as Record<string, unknown>;
-            this.#parties = selected.parties as Record<string, string>;
-        } else {
-            this.#parties = {};
-        }
-    }
-
-    async #resolve(tir: TirEnvelope, args: Record<string, unknown>): Promise<TxEnvelope> {
-        return await this.#trp.resolve({
-            tir,
-            args: { ...this.#parties, ...args },
-            ...(this.#environment !== undefined ? { env: this.#environment } : {}),
-        });
-    }
 {{#each tii.transactions}}
+export type {{pascalCase @key}}Params = {
+{{#each params.properties}}
+    {{camelCase @key}}: {{schemaTypeFor this "typescript"}};
+{{/each}}
+};
 
-    /** Resolves the {{@key}} transaction. */
-    async {{camelCase @key}}(args: {{pascalCase @key}}Params): Promise<TxEnvelope> {
-        return await this.#resolve({{constantCase @key}}_TIR, args);
-    }
+{{/each}}
+{{#if tii.profiles}}
+{{#each tii.profiles}}
+const {{constantCase @key}}_PROFILE: SdkProfile = {
+    environment: {{{json this.environment}}} as Record<string, unknown>,
+    parties: {{{json this.parties}}} as Record<string, string>,
+};
 {{/each}}
 
-    /** Submits a signed transaction to the network. */
-    async submit(params: SubmitParams): Promise<SubmitResponse> {
-        return await this.#trp.submit(params);
+/** Profiles declared by the protocol. Required argument to `Client`. */
+export type Profile = {{#each tii.profiles}}"{{@key}}"{{#unless @last}} | {{/unless}}{{/each}};
+
+{{/if}}
+/**
+ * Typed protocol client exposing the full transaction lifecycle.
+ *
+ * Wraps the runtime SDK's `Tx3Client` — all lifecycle state, party storage,
+ * resolve/sign/submit/wait, and error handling live in the SDK. This wrapper
+ * only adds the typed shape of per-transaction methods, per-party setters,
+ * and the embedded protocol fragments.
+ */
+export class Client {
+    #inner: Tx3Client;
+
+    constructor(options: ClientOptions{{#if tii.profiles}}, profile: Profile{{/if}}) {
+        const transactions = new Map<string, TirEnvelope>();
+{{#each tii.transactions}}
+        transactions.set("{{@key}}", {{constantCase @key}}_TIR);
+{{/each}}
+
+{{#if tii.profiles}}
+        const profiles = new Map<string, SdkProfile>();
+{{#each tii.profiles}}
+        profiles.set("{{@key}}", {{constantCase @key}}_PROFILE);
+{{/each}}
+{{else}}
+        const profiles = new Map<string, SdkProfile>();
+{{/if}}
+
+        this.#inner = Tx3ClientBuilder.fromParts(transactions, profiles, [])
+            .trp(options){{#if tii.profiles}}
+            .withProfile(profile){{/if}}
+            .build();
     }
+
+{{#each tii.parties}}
+    /**
+     * Binds the `{{@key}}` party (signer or read-only address). Overrides any
+     * address declared for that party by the selected profile.
+     */
+    with{{pascalCase @key}}(party: Party): this {
+        this.#inner = this.#inner.withPartyUnchecked("{{@key}}", party);
+        return this;
+    }
+
+{{/each}}
+{{#each tii.transactions}}
+    /** Builds the `{{@key}}` transaction. Drive the returned builder with
+     *  `.resolve()` and the rest of the lifecycle chain. */
+    {{camelCase @key}}(args: {{pascalCase @key}}Params): TxBuilder {
+        return this.#inner.tx("{{@key}}").args(args as Record<string, unknown>);
+    }
+
+{{/each}}
 }

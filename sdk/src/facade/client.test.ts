@@ -2,20 +2,21 @@ import { jest } from '@jest/globals';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Protocol } from '../tii/protocol.js';
-import { TrpClient } from '../trp/client.js';
+import { UnknownProfileError, UnknownTxError } from '../tii/errors.js';
 import { Tx3Client } from './client.js';
+import { Tx3ClientBuilder } from './clientBuilder.js';
 import { Party } from './party.js';
 import { PollConfig } from './poll.js';
 import { Ed25519Signer } from '../signer/ed25519.js';
 import {
+  MissingTrpEndpointError,
   UnknownPartyError,
-  MissingParamsError,
   SubmitHashMismatchError,
   FinalizedFailedError,
   FinalizedTimeoutError,
 } from './errors.js';
 import type { TxWitness } from '../trp/spec.js';
-import type { Signer } from '../signer/signer.js';
+import type { Signer, SignRequest } from '../signer/signer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.resolve(__dirname, '../../tests/fixtures/transfer.tii');
@@ -23,24 +24,7 @@ const SENDER_KEY = 'aa'.repeat(32);
 const SENDER_ADDR = 'addr_test1_sender';
 const RECEIVER_ADDR = 'addr_test1_receiver';
 const TX_HASH = 'bb'.repeat(32);
-const DEFAULT_MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
-const INTEGRATION_ENV = {
-  endpoint: process.env.TRP_ENDPOINT_PREPROD ?? 'http://localhost:9999/rpc',
-  apiKey: process.env.TRP_API_KEY_PREPROD ?? '',
-  partyAAddress: process.env.TEST_PARTY_A_ADDRESS ?? SENDER_ADDR,
-  partyAMnemonic:
-    process.env.TEST_PARTY_A_MNEMONIC ?? process.env.TEST_PARTY_B_MNEMONIC ?? DEFAULT_MNEMONIC,
-  partyBAddress: process.env.TEST_PARTY_B_ADDRESS ?? RECEIVER_ADDR,
-  partyBMnemonic:
-    process.env.TEST_PARTY_B_MNEMONIC ?? process.env.TEST_PARTY_A_MNEMONIC ?? DEFAULT_MNEMONIC,
-};
-
-function makeTrpClient(): TrpClient {
-  const headers = INTEGRATION_ENV.apiKey
-    ? { 'dmtr-api-key': INTEGRATION_ENV.apiKey }
-    : undefined;
-  return new TrpClient({ endpoint: INTEGRATION_ENV.endpoint, headers });
-}
+const ENDPOINT = 'http://localhost:9999/rpc';
 
 function jsonRpcOk(result: unknown) {
   return { jsonrpc: '2.0', result, id: '1' };
@@ -62,6 +46,22 @@ function mockFetchSequence(...responses: unknown[]) {
 let originalFetch: typeof globalThis.fetch;
 let protocol: Protocol;
 
+function baseBuilder(): Tx3ClientBuilder {
+  return protocol
+    .client()
+    .trpEndpoint(ENDPOINT)
+    .withProfile('preprod');
+}
+
+function builtClient(): Tx3Client {
+  const signer = Ed25519Signer.fromHex(SENDER_ADDR, SENDER_KEY);
+  return baseBuilder()
+    .withParty('sender', Party.signer(signer))
+    .withParty('receiver', Party.address(RECEIVER_ADDR))
+    .withParty('middleman', Party.address(RECEIVER_ADDR))
+    .build();
+}
+
 beforeAll(async () => {
   protocol = await Protocol.fromFile(FIXTURE);
 });
@@ -74,7 +74,111 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-describe('Facade unit behavior', () => {
+describe('Tx3ClientBuilder', () => {
+  test('Protocol.client() seeds a builder', () => {
+    expect(protocol.client()).toBeInstanceOf(Tx3ClientBuilder);
+  });
+
+  test('build() returns a Tx3Client', () => {
+    expect(builtClient()).toBeInstanceOf(Tx3Client);
+  });
+
+  test('build() throws MissingTrpEndpointError without an endpoint', () => {
+    expect(() => protocol.client().build()).toThrow(MissingTrpEndpointError);
+  });
+
+  test('build() throws MissingTrpEndpointError on empty endpoint', () => {
+    expect(() => protocol.client().trpEndpoint('').build()).toThrow(
+      MissingTrpEndpointError,
+    );
+  });
+
+  test('build() throws UnknownProfileError for an undeclared profile', () => {
+    expect(() =>
+      protocol.client().trpEndpoint(ENDPOINT).withProfile('not-a-profile').build(),
+    ).toThrow(UnknownProfileError);
+  });
+
+  test('build() throws UnknownPartyError for an undeclared party', () => {
+    expect(() =>
+      baseBuilder()
+        .withParty('stranger', Party.address('addr_stranger'))
+        .build(),
+    ).toThrow(UnknownPartyError);
+  });
+
+  test('withPartyUnchecked bypasses declared-party validation in build()', () => {
+    expect(() =>
+      baseBuilder()
+        .withPartyUnchecked('stranger', Party.address('addr_stranger'))
+        .build(),
+    ).not.toThrow();
+  });
+
+  test('withHeader merges into TRP options', () => {
+    const builder = protocol
+      .client()
+      .trpEndpoint(ENDPOINT)
+      .withHeader('dmtr-api-key', 'secret');
+    // Build should succeed (endpoint supplied).
+    expect(() => builder.build()).not.toThrow();
+  });
+
+  test('withEnvValue overrides profile env at resolve time', async () => {
+    const resolveResponse = jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' });
+    const fetchMock = mockFetchSequence(resolveResponse);
+    globalThis.fetch = fetchMock as never;
+
+    const client = baseBuilder()
+      .withPartyUnchecked('sender', Party.address(SENDER_ADDR))
+      .withPartyUnchecked('receiver', Party.address(RECEIVER_ADDR))
+      .withPartyUnchecked('middleman', Party.address(RECEIVER_ADDR))
+      .withEnvValue('network', 'overridden')
+      .build();
+
+    await client.tx('transfer').arg('quantity', 100).resolve();
+
+    const call = fetchMock.mock.calls[0] as [string, { body: string }];
+    const payload = JSON.parse(call[1].body) as {
+      params: { args: Record<string, unknown> };
+    };
+    expect(payload.params.args.network).toBe('overridden');
+  });
+
+  test('built client has no withProfile method', () => {
+    const client = builtClient() as unknown as Record<string, unknown>;
+    expect(client.withProfile).toBeUndefined();
+  });
+
+  test('built-client withParty validates against declared parties', () => {
+    expect(() =>
+      builtClient().withParty('stranger', Party.address('addr_stranger')),
+    ).toThrow(UnknownPartyError);
+  });
+
+  test('Tx3ClientBuilder.fromParts produces a usable client (codegen flow)', async () => {
+    const resolveResponse = jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' });
+    globalThis.fetch = mockFetchSequence(resolveResponse) as never;
+
+    const tirs = protocol.txs();
+    const transactions = new Map(
+      Object.entries(tirs).map(([k, v]) => [k, v.tir]),
+    );
+    const profiles = new Map();
+
+    const client = Tx3ClientBuilder.fromParts(transactions, profiles, [])
+      .trpEndpoint(ENDPOINT)
+      .withPartyUnchecked('sender', Party.address(SENDER_ADDR))
+      .withPartyUnchecked('receiver', Party.address(RECEIVER_ADDR))
+      .withPartyUnchecked('middleman', Party.address(RECEIVER_ADDR))
+      .build();
+
+    const resolved = await client.tx('transfer').arg('quantity', 100).resolve();
+    expect(resolved.hash).toBe(TX_HASH);
+  });
+});
+
+describe('Tx3Client lifecycle', () => {
   test('happy path: resolve → sign → submit → waitForConfirmed', async () => {
     const resolveResponse = jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' });
     const submitResponse = jsonRpcOk({ hash: TX_HASH });
@@ -96,16 +200,7 @@ describe('Facade unit behavior', () => {
       statusConfirmed,
     ) as never;
 
-    const trp = makeTrpClient();
-    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
-
-    const tx3 = new Tx3Client(protocol, trp)
-      .withProfile('preprod')
-      .withParty('sender', Party.signer(signer))
-      .withParty('receiver', Party.address(INTEGRATION_ENV.partyBAddress))
-      .withParty('middleman', Party.address(INTEGRATION_ENV.partyBAddress));
-
-    const status = await tx3
+    const status = await builtClient()
       .tx('transfer')
       .arg('quantity', 10_000_000)
       .resolve()
@@ -117,49 +212,16 @@ describe('Facade unit behavior', () => {
     expect(status.confirmations).toBe(5);
   });
 
-  test('UnknownPartyError when party not in protocol', async () => {
-    const trp = makeTrpClient();
-
-    const tx3 = new Tx3Client(protocol, trp)
-      .withParty('stranger', Party.address('addr_test1_stranger'));
-
-    await expect(
-      tx3.tx('transfer').arg('quantity', 100).resolve(),
-    ).rejects.toThrow(UnknownPartyError);
-  });
-
-  test('MissingParamsError when arg is missing', async () => {
-    const resolveResponse = jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' });
-    globalThis.fetch = mockFetchSequence(resolveResponse) as never;
-
-    const trp = makeTrpClient();
-    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
-
-    const tx3 = new Tx3Client(protocol, trp)
-      .withProfile('preprod')
-      .withParty('sender', Party.signer(signer))
-      .withParty('receiver', Party.address(INTEGRATION_ENV.partyBAddress))
-      .withParty('middleman', Party.address(INTEGRATION_ENV.partyBAddress));
-
-    await expect(tx3.tx('transfer').resolve()).rejects.toThrow(MissingParamsError);
+  test('tx() throws UnknownTxError for an undeclared transaction', () => {
+    expect(() => builtClient().tx('not-a-tx')).toThrow(UnknownTxError);
   });
 
   test('SubmitHashMismatchError when server returns different hash', async () => {
     const resolveResponse = jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' });
     const submitResponse = jsonRpcOk({ hash: 'different_hash' });
-
     globalThis.fetch = mockFetchSequence(resolveResponse, submitResponse) as never;
 
-    const trp = makeTrpClient();
-    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
-
-    const tx3 = new Tx3Client(protocol, trp)
-      .withProfile('preprod')
-      .withParty('sender', Party.signer(signer))
-      .withParty('receiver', Party.address(INTEGRATION_ENV.partyBAddress))
-      .withParty('middleman', Party.address(INTEGRATION_ENV.partyBAddress));
-
-    const resolved = await tx3.tx('transfer').arg('quantity', 100).resolve();
+    const resolved = await builtClient().tx('transfer').arg('quantity', 100).resolve();
     const signed = await resolved.sign();
 
     await expect(signed.submit()).rejects.toThrow(SubmitHashMismatchError);
@@ -180,16 +242,7 @@ describe('Facade unit behavior', () => {
       statusDropped,
     ) as never;
 
-    const trp = makeTrpClient();
-    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
-
-    const tx3 = new Tx3Client(protocol, trp)
-      .withProfile('preprod')
-      .withParty('sender', Party.signer(signer))
-      .withParty('receiver', Party.address(INTEGRATION_ENV.partyBAddress))
-      .withParty('middleman', Party.address(INTEGRATION_ENV.partyBAddress));
-
-    const submitted = await tx3
+    const submitted = await builtClient()
       .tx('transfer')
       .arg('quantity', 100)
       .resolve()
@@ -216,16 +269,7 @@ describe('Facade unit behavior', () => {
       statusPending,
     ) as never;
 
-    const trp = makeTrpClient();
-    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
-
-    const tx3 = new Tx3Client(protocol, trp)
-      .withProfile('preprod')
-      .withParty('sender', Party.signer(signer))
-      .withParty('receiver', Party.address(INTEGRATION_ENV.partyBAddress))
-      .withParty('middleman', Party.address(INTEGRATION_ENV.partyBAddress));
-
-    const submitted = await tx3
+    const submitted = await builtClient()
       .tx('transfer')
       .arg('quantity', 100)
       .resolve()
@@ -254,7 +298,7 @@ describe('Facade unit behavior', () => {
 
     const customSigner: Signer = {
       address: () => 'addr_test1_custom',
-      sign: async (hash: string): Promise<TxWitness> => {
+      sign: async (_request: SignRequest): Promise<TxWitness> => {
         await Promise.resolve();
         return {
           key: { content: 'aabbccdd', contentType: 'hex' },
@@ -264,14 +308,13 @@ describe('Facade unit behavior', () => {
       },
     };
 
-    const trp = makeTrpClient();
-    const tx3 = new Tx3Client(protocol, trp)
-      .withProfile('preprod')
+    const client = baseBuilder()
       .withParty('sender', Party.signer(customSigner))
-      .withParty('receiver', Party.address(INTEGRATION_ENV.partyBAddress))
-      .withParty('middleman', Party.address(INTEGRATION_ENV.partyBAddress));
+      .withParty('receiver', Party.address(RECEIVER_ADDR))
+      .withParty('middleman', Party.address(RECEIVER_ADDR))
+      .build();
 
-    const status = await tx3
+    const status = await client
       .tx('transfer')
       .arg('quantity', 100)
       .resolve()
@@ -286,20 +329,14 @@ describe('Facade unit behavior', () => {
     const resolveResponse = jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' });
     globalThis.fetch = mockFetchSequence(resolveResponse) as never;
 
-    const trp = makeTrpClient();
-    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
-
-    const tx3 = new Tx3Client(protocol, trp)
-      .withProfile('preprod')
+    const signer = Ed25519Signer.fromHex(SENDER_ADDR, SENDER_KEY);
+    const client = baseBuilder()
       .withParty('SeNdEr', Party.signer(signer))
-      .withParty('RECEIVER', Party.address(INTEGRATION_ENV.partyBAddress))
-      .withParty('Middleman', Party.address(INTEGRATION_ENV.partyBAddress));
+      .withParty('RECEIVER', Party.address(RECEIVER_ADDR))
+      .withParty('Middleman', Party.address(RECEIVER_ADDR))
+      .build();
 
-    const resolved = await tx3
-      .tx('transfer')
-      .arg('quantity', 100)
-      .resolve();
-
+    const resolved = await client.tx('transfer').arg('quantity', 100).resolve();
     expect(resolved.hash).toBe(TX_HASH);
   });
 
@@ -309,33 +346,20 @@ describe('Facade unit behavior', () => {
     expect(config.delayMs).toBe(5000);
   });
 
-  test('withProfile returns a new client', () => {
-    const trp = makeTrpClient();
-    const a = new Tx3Client(protocol, trp);
-    const b = a.withProfile('preprod');
-    expect(b).not.toBe(a);
-  });
-
-  test('withParties bulk attach', async () => {
+  test('withParties bulk attach on builder', async () => {
     const resolveResponse = jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' });
     globalThis.fetch = mockFetchSequence(resolveResponse) as never;
 
-    const trp = makeTrpClient();
-    const signer = Ed25519Signer.fromHex(INTEGRATION_ENV.partyAAddress, SENDER_KEY);
-
-    const tx3 = new Tx3Client(protocol, trp)
-      .withProfile('preprod')
+    const signer = Ed25519Signer.fromHex(SENDER_ADDR, SENDER_KEY);
+    const client = baseBuilder()
       .withParties({
         sender: Party.signer(signer),
-        receiver: Party.address(INTEGRATION_ENV.partyBAddress),
-        middleman: Party.address(INTEGRATION_ENV.partyBAddress),
-      });
+        receiver: Party.address(RECEIVER_ADDR),
+        middleman: Party.address(RECEIVER_ADDR),
+      })
+      .build();
 
-    const resolved = await tx3
-      .tx('transfer')
-      .arg('quantity', 100)
-      .resolve();
-
+    const resolved = await client.tx('transfer').arg('quantity', 100).resolve();
     expect(resolved.hash).toBe(TX_HASH);
   });
 });
@@ -344,6 +368,7 @@ describe('re-export canary', () => {
   test('top-level re-exports are defined', async () => {
     const mod = await import('../index.js');
     expect(mod.Tx3Client).toBeDefined();
+    expect(mod.Tx3ClientBuilder).toBeDefined();
     expect(mod.Party).toBeDefined();
     expect(mod.PollConfig).toBeDefined();
     expect(mod.CardanoSigner).toBeDefined();
@@ -351,6 +376,8 @@ describe('re-export canary', () => {
     expect(mod.Protocol).toBeDefined();
     expect(mod.TrpClient).toBeDefined();
     expect(mod.Tx3Error).toBeDefined();
+    expect(mod.MissingTrpEndpointError).toBeDefined();
+    expect(mod.BuilderError).toBeDefined();
     expect(mod.toJson).toBeDefined();
     expect(mod.fromJson).toBeDefined();
     expect(mod.trp).toBeDefined();

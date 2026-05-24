@@ -1,6 +1,8 @@
 // Facade (§3.3–§3.7)
 export { Tx3Client } from './facade/client.js';
+export { Tx3ClientBuilder } from './facade/clientBuilder.js';
 export { Party } from './facade/party.js';
+export type { Profile } from './facade/profile.js';
 export { PollConfig } from './facade/poll.js';
 export { TxBuilder } from './facade/builder.js';
 export { ResolvedTx } from './facade/resolved.js';
@@ -50,8 +52,10 @@ export {
 } from './tii/errors.js';
 export { SignerError } from './signer/errors.js';
 export {
-  ResolutionError,
+  BuilderError,
+  MissingTrpEndpointError,
   UnknownPartyError,
+  ResolutionError,
   MissingParamsError,
   SubmissionError,
   SubmitHashMismatchError,
