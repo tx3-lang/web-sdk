@@ -8,6 +8,7 @@
 # from npm — no path overrides into the SDK source tree.
 #
 # Requires `tx3c` and `npm` on PATH.
+# Last verified against fleet v0.12.0 (unified Tx3ClientBuilder).
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -26,8 +27,12 @@ for sym in \
   'export type TransferParams' \
   'TRANSFER_TIR' \
   'export class Client' \
-  'async transfer(' \
-  'PROFILES'; do
+  'transfer(' \
+  'export type Profile' \
+  'LOCAL_PROFILE' \
+  'PREPROD_PROFILE' \
+  'Tx3ClientBuilder.fromParts' \
+  'withPartyUnchecked'; do
   grep -qF "$sym" "$gen/protocol.ts" || { echo "generated protocol.ts missing: $sym"; exit 1; }
 done
 
