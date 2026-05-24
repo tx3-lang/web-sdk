@@ -1,6 +1,6 @@
 {
   "name": "tx3-sdk",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Software Development Kit for the Tx3 Language",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
