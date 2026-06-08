@@ -19,19 +19,35 @@ export const ParamType = {
   list: (inner: ParamType): ParamType => ({ kind: 'list', inner }),
   custom: (schema: JsonSchema): ParamType => ({ kind: 'custom', schema }),
 
-  fromJsonSchema(schema: JsonSchema): ParamType {
+  fromJsonSchema(
+    schema: JsonSchema,
+    components?: Record<string, JsonSchema>,
+  ): ParamType {
     const ref = schema['$ref'];
     if (typeof ref === 'string') {
-      switch (ref) {
-        case 'https://tx3.land/specs/v1beta0/core#Bytes':
+      // User-defined record / variant, referenced into components.schemas.
+      if (ref.includes('/components/schemas/')) {
+        const name = ref.split('/').pop() as string;
+        return ParamType.custom(components?.[name] ?? schema);
+      }
+      // Builtin core type, matched by trailing name so both the
+      // `…/tii#/$defs/<Name>` and legacy `…/core#<Name>` forms resolve.
+      const name = ref.split('#').pop()?.split('/').pop();
+      switch (name) {
+        case 'Bytes':
           return ParamType.bytes();
-        case 'https://tx3.land/specs/v1beta0/core#Address':
+        case 'Address':
           return ParamType.address();
-        case 'https://tx3.land/specs/v1beta0/core#UtxoRef':
+        case 'UtxoRef':
           return ParamType.utxoRef();
         default:
           throw new InvalidParamTypeError(`unknown $ref: ${ref}`);
       }
+    }
+
+    // Variant: a tagged union of cases.
+    if (Array.isArray(schema['oneOf'])) {
+      return ParamType.custom(schema);
     }
 
     const type = schema['type'];
@@ -41,6 +57,9 @@ export const ParamType = {
           return ParamType.integer();
         case 'boolean':
           return ParamType.boolean();
+        // Inline record / custom object shape.
+        case 'object':
+          return ParamType.custom(schema);
         default:
           throw new InvalidParamTypeError(`unsupported type: ${type}`);
       }
@@ -52,7 +71,10 @@ export const ParamType = {
 
 export type ParamMap = Map<string, ParamType>;
 
-export function paramsFromSchema(schema: JsonSchema): ParamMap {
+export function paramsFromSchema(
+  schema: JsonSchema,
+  components?: Record<string, JsonSchema>,
+): ParamMap {
   const params: ParamMap = new Map();
   const properties = schema['properties'];
   if (properties && typeof properties === 'object' && !Array.isArray(properties)) {
@@ -60,7 +82,7 @@ export function paramsFromSchema(schema: JsonSchema): ParamMap {
       if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw new InvalidParamTypeError(`property ${key} is not a schema object`);
       }
-      params.set(key, ParamType.fromJsonSchema(value as JsonSchema));
+      params.set(key, ParamType.fromJsonSchema(value as JsonSchema, components));
     }
   }
   return params;
