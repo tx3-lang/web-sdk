@@ -36,6 +36,10 @@ export const {{constantCase @key}}_TIR = {
 } as const satisfies TirEnvelope;
 
 {{/each}}
+{{#if tii.components.schemas}}
+// Named types for the protocol's custom (record / variant) types.
+{{{componentTypes tii.components.schemas "typescript"}}}
+{{/if}}
 {{#each tii.transactions}}
 export type {{pascalCase @key}}Params = {
 {{#each params.properties}}

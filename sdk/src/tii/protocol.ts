@@ -94,13 +94,15 @@ export class Protocol {
       params.set(party.toLowerCase(), ParamType.address());
     }
 
+    const components = this.spec.components?.schemas;
+
     if (this.spec.environment) {
-      for (const [k, v] of paramsFromSchema(this.spec.environment)) {
+      for (const [k, v] of paramsFromSchema(this.spec.environment, components)) {
         params.set(k, v);
       }
     }
 
-    for (const [k, v] of paramsFromSchema(tx.params)) {
+    for (const [k, v] of paramsFromSchema(tx.params, components)) {
       params.set(k, v);
     }
 
