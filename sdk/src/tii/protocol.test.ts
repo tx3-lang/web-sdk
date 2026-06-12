@@ -8,6 +8,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.resolve(__dirname, '../../tests/fixtures/transfer.tii');
+const COMPLEX_FIXTURE = path.resolve(__dirname, '../../tests/fixtures/complex.tii');
 
 describe('Protocol', () => {
   let protocol: Protocol;
@@ -69,6 +70,46 @@ describe('Protocol', () => {
 
     test('invoke with unknown profile throws UnknownProfileError', () => {
       expect(() => protocol.invoke('transfer', 'nonexistent')).toThrow(UnknownProfileError);
+    });
+
+    // Locks in the invoke path the paramType unit tests can't reach: threading
+    // spec.components.schemas into paramsFromSchema, and exposing party (Address)
+    // and environment-schema params. Asserts a real complex.tii produces the
+    // expected compound kinds, incl. a component-$ref Record and Variant.
+    test('invoke interprets complex params, parties, and environment', async () => {
+      const complex = await Protocol.fromFile(COMPLEX_FIXTURE);
+      const params = complex.invoke('complex').params();
+
+      const wantKind: Record<string, string> = {
+        quantity: 'integer',
+        flag: 'boolean',
+        nothing: 'unit',
+        recipient: 'address',
+        source: 'utxoRef',
+        bag: 'anyAsset',
+        amounts: 'list',
+        pair: 'tuple',
+        labels: 'map',
+        asset: 'record',
+        side: 'variant',
+        // Parties surface as implicit Address params (lowercased).
+        sender: 'address',
+        receiver: 'address',
+        // Protocol-level environment schema params.
+        fee: 'integer',
+      };
+      for (const [name, kind] of Object.entries(wantKind)) {
+        expect(params.get(name)?.kind).toBe(kind);
+      }
+
+      // The component-$ref Record must have resolved its inner Bytes field — this
+      // is the assertion that actually guards the components threading.
+      const asset = params.get('asset');
+      expect(asset?.kind === 'record' && asset.fields['policy']?.kind).toBe('bytes');
+
+      // The component-$ref Variant must have resolved its cases.
+      const side = params.get('side');
+      expect(side?.kind === 'variant' && side.cases.length).toBe(2);
     });
   });
 
