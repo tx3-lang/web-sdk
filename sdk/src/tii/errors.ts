@@ -23,15 +23,3 @@ export class UnknownProfileError extends TiiError {
     this.profile = profile;
   }
 }
-
-export class InvalidParamsSchemaError extends TiiError {
-  constructor(message = 'invalid params schema') {
-    super(message);
-  }
-}
-
-export class InvalidParamTypeError extends TiiError {
-  constructor(message = 'invalid param type') {
-    super(message);
-  }
-}

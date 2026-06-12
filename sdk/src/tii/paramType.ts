@@ -67,6 +67,69 @@ function variantCase(
   return { tag, fields };
 }
 
+/** Interprets a `$ref` node: a `#/components/schemas/<Name>` reference resolves
+ * against `components` (recursing), a core `$ref` maps by trailing name, anything
+ * else falls back to `unknown`. */
+function refType(
+  schema: JsonSchema,
+  ref: string,
+  components?: Record<string, JsonSchema>,
+): ParamType {
+  // User-defined record / variant, referenced into components.schemas.
+  if (ref.includes('/components/schemas/')) {
+    const name = ref.split('/').pop() as string;
+    const resolved = components?.[name];
+    return resolved
+      ? ParamType.fromJsonSchema(resolved, components)
+      : ParamType.unknown(schema);
+  }
+  return coreRefType(ref) ?? ParamType.unknown(schema);
+}
+
+/** Interprets an `array` schema: `prefixItems` → tuple, `items` → list, neither
+ * → `unknown`. */
+function arrayType(
+  schema: JsonSchema,
+  components?: Record<string, JsonSchema>,
+): ParamType {
+  const prefixItems = schema['prefixItems'];
+  if (Array.isArray(prefixItems)) {
+    return ParamType.tuple(
+      prefixItems.map((el) => ParamType.fromJsonSchema(el as JsonSchema, components)),
+    );
+  }
+  const items = schema['items'];
+  if (isSchema(items)) {
+    return ParamType.list(ParamType.fromJsonSchema(items, components));
+  }
+  return ParamType.unknown(schema);
+}
+
+/** Interprets an `object` schema: `additionalProperties` → map, `properties` →
+ * record, neither → `unknown`. */
+function objectType(
+  schema: JsonSchema,
+  components?: Record<string, JsonSchema>,
+): ParamType {
+  const additional = schema['additionalProperties'];
+  if (isSchema(additional)) {
+    return ParamType.map(ParamType.fromJsonSchema(additional, components));
+  }
+  const properties = schema['properties'];
+  if (isSchema(properties)) {
+    const fields: Record<string, ParamType> = {};
+    for (const [key, value] of Object.entries(
+      properties as Record<string, unknown>,
+    )) {
+      fields[key] = isSchema(value)
+        ? ParamType.fromJsonSchema(value, components)
+        : ParamType.unknown(schema);
+    }
+    return ParamType.record(fields);
+  }
+  return ParamType.unknown(schema);
+}
+
 export const ParamType = {
   bytes: (): ParamType => ({ kind: 'bytes' }),
   integer: (): ParamType => ({ kind: 'integer' }),
@@ -103,15 +166,7 @@ export const ParamType = {
 
     const ref = schema['$ref'];
     if (typeof ref === 'string') {
-      // User-defined record / variant, referenced into components.schemas.
-      if (ref.includes('/components/schemas/')) {
-        const name = ref.split('/').pop() as string;
-        const resolved = components?.[name];
-        return resolved
-          ? ParamType.fromJsonSchema(resolved, components)
-          : ParamType.unknown(schema);
-      }
-      return coreRefType(ref) ?? ParamType.unknown(schema);
+      return refType(schema, ref, components);
     }
 
     // Variant: a tagged union of externally-tagged cases.
@@ -123,49 +178,17 @@ export const ParamType = {
       );
     }
 
-    const type = schema['type'];
-    switch (type) {
+    switch (schema['type']) {
       case 'integer':
         return ParamType.integer();
       case 'boolean':
         return ParamType.boolean();
       case 'null':
         return ParamType.unit();
-      // Compound array shape: a tuple carries positional `prefixItems`, a list
-      // carries a single `items` element schema.
-      case 'array': {
-        const prefixItems = schema['prefixItems'];
-        if (Array.isArray(prefixItems)) {
-          return ParamType.tuple(
-            prefixItems.map((el) => ParamType.fromJsonSchema(el as JsonSchema, components)),
-          );
-        }
-        const items = schema['items'];
-        if (isSchema(items)) {
-          return ParamType.list(ParamType.fromJsonSchema(items, components));
-        }
-        return ParamType.unknown(schema);
-      }
-      // Object shape: `additionalProperties` is a map; `properties` is a record.
-      case 'object': {
-        const additional = schema['additionalProperties'];
-        if (isSchema(additional)) {
-          return ParamType.map(ParamType.fromJsonSchema(additional, components));
-        }
-        const properties = schema['properties'];
-        if (isSchema(properties)) {
-          const fields: Record<string, ParamType> = {};
-          for (const [key, value] of Object.entries(
-            properties as Record<string, unknown>,
-          )) {
-            fields[key] = isSchema(value)
-              ? ParamType.fromJsonSchema(value, components)
-              : ParamType.unknown(schema);
-          }
-          return ParamType.record(fields);
-        }
-        return ParamType.unknown(schema);
-      }
+      case 'array':
+        return arrayType(schema, components);
+      case 'object':
+        return objectType(schema, components);
       default:
         return ParamType.unknown(schema);
     }
