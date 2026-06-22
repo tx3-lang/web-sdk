@@ -1,5 +1,6 @@
 import type { ArgMap, TirEnvelope } from '../core/index.js';
 import type { ResolveParams } from '../trp/spec.js';
+import { encode } from './encode.js';
 import type { ParamMap, ParamType } from './paramType.js';
 
 export class Invocation {
@@ -44,9 +45,26 @@ export class Invocation {
   }
 
   intoResolveRequest(): ResolveParams {
+    // Every arg is marshalled by its `.tii` `ParamType`: top-level scalars come
+    // back bare (the resolver coerces them via the flat TIR type), aggregates
+    // tagged into the self-describing `TaggedArg` wire form. An unmapped arg has
+    // no type, so it passes through untouched. Arg keys are lowercased on set;
+    // params keep their original case, so match case-insensitively.
+    const args: ArgMap = {};
+    for (const [key, value] of Object.entries(this._args)) {
+      let paramType: ParamType | undefined;
+      for (const [name, type] of this._params) {
+        if (name.toLowerCase() === key) {
+          paramType = type;
+          break;
+        }
+      }
+      args[key] = paramType ? encode(paramType, value) : value;
+    }
+
     return {
       tir: this.tir,
-      args: { ...this._args },
+      args,
     };
   }
 }

@@ -6,6 +6,9 @@ export interface VariantCase {
   fields: ParamType;
 }
 
+/** A record field, `[name, type]`, kept in declared order. */
+export type RecordField = [name: string, type: ParamType];
+
 export type ParamType =
   | { kind: 'bytes' }
   | { kind: 'integer' }
@@ -18,7 +21,11 @@ export type ParamType =
   | { kind: 'list'; inner: ParamType }
   | { kind: 'tuple'; elements: ParamType[] }
   | { kind: 'map'; value: ParamType }
-  | { kind: 'record'; fields: Record<string, ParamType> }
+  // Fields are positional in **declared order** — the schema's `required` array,
+  // which `tx3c` emits in source-declaration order. (`properties` is alphabetized
+  // by JSON and must not drive field order; the type-directed encoder relies on
+  // this order to build the positional `struct` wire form.)
+  | { kind: 'record'; fields: RecordField[] }
   | { kind: 'variant'; cases: VariantCase[] }
   | { kind: 'unknown'; schema: JsonSchema };
 
@@ -117,17 +124,42 @@ function objectType(
   }
   const properties = schema['properties'];
   if (isSchema(properties)) {
-    const fields: Record<string, ParamType> = {};
-    for (const [key, value] of Object.entries(
-      properties as Record<string, unknown>,
-    )) {
-      fields[key] = isSchema(value)
-        ? ParamType.fromJsonSchema(value, components)
-        : ParamType.unknown(schema);
-    }
-    return ParamType.record(fields);
+    return ParamType.record(recordFields(schema, properties, components));
   }
   return ParamType.unknown(schema);
+}
+
+/** Builds record fields in **declared order**: the schema's `required` array
+ * first (the order `tx3c` emits, = source declaration), then any remaining
+ * `properties` (which JSON alphabetizes). The encoder needs this order to
+ * produce positional `struct` fields. */
+function recordFields(
+  schema: JsonSchema,
+  properties: JsonSchema,
+  components?: Record<string, JsonSchema>,
+): RecordField[] {
+  const props = properties as Record<string, unknown>;
+  const toType = (value: unknown): ParamType =>
+    isSchema(value) ? ParamType.fromJsonSchema(value, components) : ParamType.unknown(schema);
+
+  const fields: RecordField[] = [];
+  const seen = new Set<string>();
+
+  const required = schema['required'];
+  if (Array.isArray(required)) {
+    for (const name of required) {
+      if (typeof name === 'string' && name in props) {
+        fields.push([name, toType(props[name])]);
+        seen.add(name);
+      }
+    }
+  }
+
+  for (const [key, value] of Object.entries(props)) {
+    if (!seen.has(key)) fields.push([key, toType(value)]);
+  }
+
+  return fields;
 }
 
 export const ParamType = {
@@ -142,12 +174,20 @@ export const ParamType = {
   list: (inner: ParamType): ParamType => ({ kind: 'list', inner }),
   tuple: (elements: ParamType[]): ParamType => ({ kind: 'tuple', elements }),
   map: (value: ParamType): ParamType => ({ kind: 'map', value }),
-  record: (fields: Record<string, ParamType>): ParamType => ({
+  record: (fields: RecordField[]): ParamType => ({
     kind: 'record',
     fields,
   }),
   variant: (cases: VariantCase[]): ParamType => ({ kind: 'variant', cases }),
   unknown: (schema: JsonSchema): ParamType => ({ kind: 'unknown', schema }),
+
+  /** Looks up a field type by name in a `record` (any other kind yields
+   * `undefined`). Field order is preserved separately; this is the by-name
+   * accessor for callers that don't care about position. */
+  field(type: ParamType, name: string): ParamType | undefined {
+    if (type.kind !== 'record') return undefined;
+    return type.fields.find(([k]) => k === name)?.[1];
+  },
 
   /**
    * Interprets a JSON schema node into a {@link ParamType}. Never throws: any

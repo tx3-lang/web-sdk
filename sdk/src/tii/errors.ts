@@ -23,3 +23,12 @@ export class UnknownProfileError extends TiiError {
     this.profile = profile;
   }
 }
+
+/**
+ * An argument value whose shape does not match its declared `ParamType`.
+ *
+ * Surfaced **before** the request is sent (the SDK is authoritative for complex
+ * types), so a malformed complex arg fails fast at the client rather than as an
+ * opaque resolver error.
+ */
+export class EncodeError extends TiiError {}

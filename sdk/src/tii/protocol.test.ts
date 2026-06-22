@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Protocol } from './protocol.js';
+import { ParamType } from './paramType.js';
 import {
   UnknownTxError,
   UnknownProfileError,
@@ -105,7 +106,7 @@ describe('Protocol', () => {
       // The component-$ref Record must have resolved its inner Bytes field — this
       // is the assertion that actually guards the components threading.
       const asset = params.get('asset');
-      expect(asset?.kind === 'record' && asset.fields['policy']?.kind).toBe('bytes');
+      expect(asset && ParamType.field(asset, 'policy')?.kind).toBe('bytes');
 
       // The component-$ref Variant must have resolved its cases.
       const side = params.get('side');
@@ -157,6 +158,27 @@ describe('Protocol', () => {
       expect(req.tir).toBeDefined();
       expect(req.args).toBeDefined();
       expect(req.args.quantity).toBe(100);
+    });
+
+    // End-to-end through the path `cshell`/`trix invoke` take (`setArgs` →
+    // `intoResolveRequest`): an aggregate arg serializes to its tagged wire form
+    // while top-level scalars stay bare.
+    test('intoResolveRequest tags aggregate args and leaves scalars bare', async () => {
+      const complex = await Protocol.fromFile(COMPLEX_FIXTURE);
+      const req = complex.invoke('complex').setArgs({
+        quantity: 100,
+        flag: true,
+        recipient: 'addr1',
+        amounts: [1, 2, 3],
+      }).intoResolveRequest();
+
+      // The List<Int> aggregate is fully tagged.
+      expect(req.args.amounts).toEqual({ list: [{ int: 1 }, { int: 2 }, { int: 3 }] });
+
+      // Scalars stay bare; the resolver coerces them via the flat type.
+      expect(req.args.quantity).toBe(100);
+      expect(req.args.flag).toBe(true);
+      expect(req.args.recipient).toBe('addr1');
     });
   });
 });
