@@ -66,8 +66,28 @@ describe('ParamType.fromJsonSchema', () => {
     };
     expect(ParamType.fromJsonSchema(record)).toEqual({
       kind: 'record',
-      fields: { price: { kind: 'integer' }, live: { kind: 'boolean' } },
+      fields: [
+        ['price', { kind: 'integer' }],
+        ['live', { kind: 'boolean' }],
+      ],
     });
+  });
+
+  it('orders record fields by `required` (declared order), not alphabetical `properties`', () => {
+    // Meta { tags: List<Int>, level: Int } — required = [tags, level], while
+    // `properties` alphabetizes to [level, tags]. The fields must be [tags, level].
+    const meta: JsonSchema = {
+      type: 'object',
+      properties: {
+        level: { type: 'integer' },
+        tags: { type: 'array', items: { type: 'integer' } },
+      },
+      required: ['tags', 'level'],
+    };
+    const param = ParamType.fromJsonSchema(meta);
+    expect(param.kind).toBe('record');
+    if (param.kind !== 'record') throw new Error('unreachable');
+    expect(param.fields.map(([name]) => name)).toEqual(['tags', 'level']);
   });
 
   it('maps a oneOf to an externally-tagged variant', () => {
@@ -99,7 +119,7 @@ describe('ParamType.fromJsonSchema', () => {
     expect(param.cases.map((c) => c.tag)).toEqual(['Buy', 'Sell']);
     expect(param.cases[1].fields).toEqual({
       kind: 'record',
-      fields: { price: { kind: 'integer' } },
+      fields: [['price', { kind: 'integer' }]],
     });
   });
 
@@ -114,7 +134,7 @@ describe('ParamType.fromJsonSchema', () => {
     const ref: JsonSchema = { $ref: '#/components/schemas/AssetClass' };
     expect(ParamType.fromJsonSchema(ref, components)).toEqual({
       kind: 'record',
-      fields: { policy: { kind: 'bytes' } },
+      fields: [['policy', { kind: 'bytes' }]],
     });
   });
 
@@ -151,7 +171,7 @@ describe('paramsFromSchema', () => {
     const map = paramsFromSchema(params, components);
     expect(map.get('asset')).toEqual({
       kind: 'record',
-      fields: { policy: { kind: 'bytes' } },
+      fields: [['policy', { kind: 'bytes' }]],
     });
     expect(map.get('quantity')?.kind).toBe('integer');
   });
