@@ -1,5 +1,6 @@
 import type { ArgMap, TirEnvelope } from '../core/index.js';
 import { UnknownTxError } from '../tii/errors.js';
+import type { ParamMap } from '../tii/paramType.js';
 import type { TrpClient } from '../trp/client.js';
 import { TxBuilder } from './builder.js';
 import { UnknownPartyError } from './errors.js';
@@ -18,6 +19,7 @@ import type { Profile } from './profile.js';
  */
 export class Tx3Client {
   readonly #transactions: ReadonlyMap<string, TirEnvelope>;
+  readonly #txParams: ReadonlyMap<string, ParamMap>;
   readonly #knownParties: ReadonlySet<string>;
   readonly #trp: TrpClient;
   readonly #boundParties: Map<string, Party>;
@@ -26,6 +28,7 @@ export class Tx3Client {
 
   private constructor(
     transactions: ReadonlyMap<string, TirEnvelope>,
+    txParams: ReadonlyMap<string, ParamMap>,
     knownParties: ReadonlySet<string>,
     trp: TrpClient,
     boundParties: Map<string, Party>,
@@ -33,6 +36,7 @@ export class Tx3Client {
     envOverrides: ArgMap,
   ) {
     this.#transactions = transactions;
+    this.#txParams = txParams;
     this.#knownParties = knownParties;
     this.#trp = trp;
     this.#boundParties = boundParties;
@@ -43,6 +47,7 @@ export class Tx3Client {
   /** @internal — call site is `Tx3ClientBuilder.build()`. */
   static _fromBuilder(
     transactions: Map<string, TirEnvelope>,
+    txParams: Map<string, ParamMap>,
     knownParties: Set<string>,
     trp: TrpClient,
     boundParties: Map<string, Party>,
@@ -51,6 +56,7 @@ export class Tx3Client {
   ): Tx3Client {
     return new Tx3Client(
       transactions,
+      txParams,
       knownParties,
       trp,
       boundParties,
@@ -116,12 +122,14 @@ export class Tx3Client {
 
     const env = this.#mergedEnv();
     const parties = this.#mergedParties();
-    return new TxBuilder(this.#trp, tir).env(env).parties(parties);
+    const params = this.#txParams.get(name) ?? new Map();
+    return new TxBuilder(this.#trp, tir).params(params).env(env).parties(parties);
   }
 
   #withParties(next: Map<string, Party>): Tx3Client {
     return new Tx3Client(
       this.#transactions,
+      this.#txParams,
       this.#knownParties,
       this.#trp,
       next,

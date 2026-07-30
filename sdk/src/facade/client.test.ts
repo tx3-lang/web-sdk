@@ -178,6 +178,110 @@ describe('Tx3ClientBuilder', () => {
   });
 });
 
+describe('facade arg encoding', () => {
+  // Hydra-`init`-shaped protocol: `participants` is `List<Bytes>` (regression:
+  // the facade resolve path sent aggregate args raw, so the resolver failed
+  // with `(-32005) target type not supported: List` / `value is not bytes`).
+  const HYDRA_LIKE = {
+    tii: { version: 'v1beta0' },
+    protocol: { name: 'hydra_like', scope: 'test', version: '0.1.0' },
+    parties: { initiator: {} },
+    transactions: {
+      init: {
+        tir: { content: 'abcd', encoding: 'hex', version: 'v1beta0' },
+        params: {
+          type: 'object',
+          properties: {
+            head_id: { $ref: 'https://tx3.land/specs/v1beta0/tii#/$defs/Bytes' },
+            participants: {
+              type: 'array',
+              items: { $ref: 'https://tx3.land/specs/v1beta0/tii#/$defs/Bytes' },
+            },
+          },
+          required: ['head_id', 'participants'],
+        },
+      },
+    },
+  };
+
+  function resolveArgsOf(fetchMock: ReturnType<typeof mockFetchSequence>): Record<string, unknown> {
+    const call = fetchMock.mock.calls[0] as unknown as [string, { body: string }];
+    const payload = JSON.parse(call[1].body) as {
+      params: { args: Record<string, unknown> };
+    };
+    return payload.params.args;
+  }
+
+  test('dynamic client encodes typed args into the TaggedArg wire form', async () => {
+    const fetchMock = mockFetchSequence(jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' }));
+    globalThis.fetch = fetchMock as never;
+
+    const client = Protocol.fromJson(HYDRA_LIKE)
+      .client()
+      .trpEndpoint(ENDPOINT)
+      .withParty('initiator', Party.address(SENDER_ADDR))
+      .build();
+
+    await client
+      .tx('init')
+      .arg('head_id', 'abcd0123')
+      .arg('participants', [Uint8Array.from([1, 2]), '0304'])
+      .resolve();
+
+    const args = resolveArgsOf(fetchMock);
+    expect(args.participants).toEqual({
+      list: [{ bytes: '0x0102' }, { bytes: '0304' }],
+    });
+    // Top-level scalars stay bare; the resolver coerces them.
+    expect(args.head_id).toBe('abcd0123');
+    expect(args.initiator).toBe(SENDER_ADDR);
+  });
+
+  test('codegen-style client encodes via withTxParams', async () => {
+    const fetchMock = mockFetchSequence(jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' }));
+    globalThis.fetch = fetchMock as never;
+
+    const { paramsFromSchema } = await import('../tii/paramType.js');
+    const initSchema = HYDRA_LIKE.transactions.init.params;
+
+    const transactions = new Map([
+      ['init', { content: 'abcd', encoding: 'hex', version: 'v1beta0' } as const],
+    ]);
+
+    const client = Tx3ClientBuilder.fromParts(transactions, new Map(), [])
+      .trpEndpoint(ENDPOINT)
+      .withTxParams('init', paramsFromSchema(initSchema, undefined))
+      .withPartyUnchecked('initiator', Party.address(SENDER_ADDR))
+      .build();
+
+    await client
+      .tx('init')
+      .args({ head_id: 'abcd0123', participants: [[1, 2]] })
+      .resolve();
+
+    const args = resolveArgsOf(fetchMock);
+    expect(args.participants).toEqual({ list: [{ bytes: '0x0102' }] });
+    expect(args.head_id).toBe('abcd0123');
+  });
+
+  test('args without a declared type pass through untouched', async () => {
+    const fetchMock = mockFetchSequence(jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' }));
+    globalThis.fetch = fetchMock as never;
+
+    const transactions = new Map([
+      ['init', { content: 'abcd', encoding: 'hex', version: 'v1beta0' } as const],
+    ]);
+
+    const client = Tx3ClientBuilder.fromParts(transactions, new Map(), [])
+      .trpEndpoint(ENDPOINT)
+      .build();
+
+    await client.tx('init').args({ mystery: [[1, 2]] }).resolve();
+
+    expect(resolveArgsOf(fetchMock).mystery).toEqual([[1, 2]]);
+  });
+});
+
 describe('Tx3Client lifecycle', () => {
   test('happy path: resolve → sign → submit → waitForConfirmed', async () => {
     const resolveResponse = jsonRpcOk({ hash: TX_HASH, tx: 'cafebabe' });

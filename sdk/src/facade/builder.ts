@@ -1,4 +1,6 @@
 import type { ArgMap, TirEnvelope } from '../core/index.js';
+import { encode } from '../tii/encode.js';
+import type { ParamMap, ParamType } from '../tii/paramType.js';
 import type { TrpClient } from '../trp/client.js';
 import type { ResolveParams } from '../trp/spec.js';
 import { type Party, partyAddress } from './party.js';
@@ -19,6 +21,7 @@ export class TxBuilder {
   #env: ArgMap = {};
   readonly #parties: Map<string, Party> = new Map();
   readonly #args: ArgMap = {};
+  #params: ParamMap = new Map();
 
   constructor(trp: TrpClient, tir: TirEnvelope) {
     this.#trp = trp;
@@ -28,6 +31,16 @@ export class TxBuilder {
   /** Sets the environment values applied to this transaction. */
   env(env: ArgMap): this {
     this.#env = { ...env };
+    return this;
+  }
+
+  /**
+   * Sets the parameter-type map used to marshal argument values into the TRP
+   * `TaggedArg` wire form at resolve time. Arguments without a matching entry
+   * pass through unencoded. See `Tx3ClientBuilder.withTxParams`.
+   */
+  params(params: ParamMap): this {
+    this.#params = new Map(params);
     return this;
   }
 
@@ -65,9 +78,26 @@ export class TxBuilder {
     }
     for (const [k, v] of Object.entries(this.#args)) merged[k] = v;
 
+    // Every merged value with a declared param type is marshalled into the
+    // `TaggedArg` wire form (top-level scalars bare, aggregates tagged). An
+    // unmapped value passes through untouched. Merged keys are lowercased on
+    // insert while params keep their original case, so match
+    // case-insensitively.
+    const args: ArgMap = {};
+    for (const [key, value] of Object.entries(merged)) {
+      let paramType: ParamType | undefined;
+      for (const [name, type] of this.#params) {
+        if (name.toLowerCase() === key.toLowerCase()) {
+          paramType = type;
+          break;
+        }
+      }
+      args[key] = paramType ? encode(paramType, value) : value;
+    }
+
     const request: ResolveParams = {
       tir: this.#tir,
-      args: merged,
+      args,
     };
 
     const envelope = await this.#trp.resolve(request);

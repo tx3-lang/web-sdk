@@ -84,10 +84,19 @@ export class Protocol {
     return profile;
   }
 
-  invoke(name: string, profile?: string): Invocation {
-    const tx = this.ensureTx(name);
-    const profileEntry = profile !== undefined ? this.ensureProfile(profile) : undefined;
+  /**
+   * Builds the full parameter-type map a transaction resolves against:
+   * declared parties (as addresses, lowercased), the protocol environment
+   * schema, and the transaction's own params schema — the same map `invoke`
+   * gives its `Invocation`.
+   *
+   * @throws {UnknownTxError} if `name` is not declared by the protocol.
+   */
+  txParams(name: string): ParamMap {
+    return this.paramsFor(this.ensureTx(name));
+  }
 
+  private paramsFor(tx: Transaction): ParamMap {
     const params: ParamMap = new Map();
 
     for (const party of Object.keys(this.parties())) {
@@ -106,7 +115,14 @@ export class Protocol {
       params.set(k, v);
     }
 
-    const invocation = new Invocation(tx.tir, params);
+    return params;
+  }
+
+  invoke(name: string, profile?: string): Invocation {
+    const tx = this.ensureTx(name);
+    const profileEntry = profile !== undefined ? this.ensureProfile(profile) : undefined;
+
+    const invocation = new Invocation(tx.tir, this.paramsFor(tx));
 
     if (profileEntry) {
       if (isPlainObject(profileEntry.environment)) {
