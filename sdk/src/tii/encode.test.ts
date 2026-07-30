@@ -93,3 +93,71 @@ describe('encode — leaf position', () => {
     });
   });
 });
+
+const BYTES_SCHEMA: JsonSchema = {
+  $ref: 'https://tx3.land/specs/v1beta0/tii#/$defs/Bytes',
+};
+const LIST_OF_BYTES_SCHEMA: JsonSchema = {
+  type: 'array',
+  items: BYTES_SCHEMA,
+};
+
+describe('encode — native byte arrays', () => {
+  it('canonicalizes a Uint8Array to 0x-prefixed hex', () => {
+    expect(encode(paramType(BYTES_SCHEMA), Uint8Array.from([1, 1]))).toEqual('0x0101');
+    expect(encode(paramType(LIST_OF_BYTES_SCHEMA), [Uint8Array.from([1, 2])])).toEqual({
+      list: [{ bytes: '0x0102' }],
+    });
+  });
+
+  it('canonicalizes an integer array (0..=255) to 0x-prefixed hex', () => {
+    // The JSON shape other SDKs' native byte arrays serialize to — regression
+    // for TRP `(-32005) value is not bytes: [1,1]`.
+    expect(encode(paramType(BYTES_SCHEMA), [1, 1])).toEqual('0x0101');
+    expect(encode(paramType(LIST_OF_BYTES_SCHEMA), [[1, 2]])).toEqual({
+      list: [{ bytes: '0x0102' }],
+    });
+  });
+
+  it('rejects arrays that are not byte arrays', () => {
+    expect(() => encode(paramType(BYTES_SCHEMA), [1, 256])).toThrow(EncodeError);
+    expect(() => encode(paramType(BYTES_SCHEMA), [1, -1])).toThrow(EncodeError);
+    expect(() => encode(paramType(BYTES_SCHEMA), ['aa', 1])).toThrow(EncodeError);
+    expect(() => encode(paramType(BYTES_SCHEMA), true)).toThrow(EncodeError);
+  });
+});
+
+describe('encode — Hydra init argument shapes', () => {
+  // `participants` / `parties` are `List<Bytes>`, `head_id` is `Bytes`
+  // (regression: `(-32005) target type not supported: List` /
+  // `value is not bytes: [1,2]`).
+  it('encodes participants given as hex strings', () => {
+    expect(encode(paramType(LIST_OF_BYTES_SCHEMA), ['0102', '0304'])).toEqual({
+      list: [{ bytes: '0102' }, { bytes: '0304' }],
+    });
+  });
+
+  it('encodes participants given as native byte arrays', () => {
+    expect(encode(paramType(LIST_OF_BYTES_SCHEMA), [Uint8Array.from([1, 2])])).toEqual({
+      list: [{ bytes: '0x0102' }],
+    });
+  });
+
+  it('keeps a top-level head_id hex string bare', () => {
+    expect(encode(paramType(BYTES_SCHEMA), 'abcd0123')).toEqual('abcd0123');
+  });
+});
+
+describe('encode — Asteria name argument shapes', () => {
+  // `ship_name` / `pilot_name` are `Bytes` params (regression:
+  // `(-32005) value is not bytes: [1,1]`).
+  it('passes hex-string names through bare at the top level', () => {
+    expect(encode(paramType(BYTES_SCHEMA), '53484950313233')).toEqual('53484950313233');
+  });
+
+  it('canonicalizes byte-array names', () => {
+    expect(encode(paramType(BYTES_SCHEMA), Uint8Array.from([83, 72, 73, 80]))).toEqual(
+      '0x53484950',
+    );
+  });
+});

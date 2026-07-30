@@ -14,6 +14,7 @@
 //! it via the flat TIR type); the same scalar nested inside an aggregate renders
 //! **tagged**, because the resolver has no element/field type there.
 
+import { bytesToHex } from '../core/bytes.js';
 import { EncodeError } from './errors.js';
 import type { ParamType, VariantCase } from './paramType.js';
 
@@ -69,12 +70,20 @@ function marshal(param: ParamType, value: unknown, nested: boolean): unknown {
         return leaf('bool', value, nested);
       }
       throw wrongShape('boolean', 'bool', value);
-    case 'bytes':
+    case 'bytes': {
+      // A native byte array (`Uint8Array`, or an integer array — the JSON shape
+      // other SDKs' native byte arrays serialize to) canonicalizes to
+      // 0x-prefixed hex, the wire form the resolver coerces (SDK spec §3.9).
+      const raw = asByteArray(value);
+      if (raw !== undefined) {
+        return leaf('bytes', `0x${bytesToHex(raw)}`, nested);
+      }
       // Hex string or a BytesEnvelope object.
       if (typeof value === 'string' || isObject(value)) {
         return leaf('bytes', value, nested);
       }
-      throw wrongShape('bytes', 'hex string or bytes envelope', value);
+      throw wrongShape('bytes', 'hex string, bytes envelope, or byte array', value);
+    }
     case 'address':
       if (typeof value === 'string') return leaf('address', value, nested);
       throw wrongShape('address', 'bech32 or hex string', value);
@@ -128,6 +137,21 @@ function marshal(param: ParamType, value: unknown, nested: boolean): unknown {
     case 'unknown':
       return value;
   }
+}
+
+/**
+ * Interprets a value as a raw byte array: a `Uint8Array`, or an array whose
+ * every element is an integer in `0..=255`. `undefined` if it is neither.
+ */
+function asByteArray(value: unknown): Uint8Array | undefined {
+  if (value instanceof Uint8Array) return value;
+  if (
+    Array.isArray(value) &&
+    value.every((b) => typeof b === 'number' && Number.isInteger(b) && b >= 0 && b <= 255)
+  ) {
+    return Uint8Array.from(value as number[]);
+  }
+  return undefined;
 }
 
 /**
