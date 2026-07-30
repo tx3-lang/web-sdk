@@ -1,15 +1,19 @@
 import { ed25519 } from '@noble/curves/ed25519';
-import { mnemonicToSeedSync } from '@scure/bip39';
 
 import { bytesToHex, hexToBytes } from '../core/bytes.js';
 import type { TxWitness } from '../trp/spec.js';
-import {
-  InvalidHashError,
-  InvalidMnemonicError,
-  InvalidPrivateKeyError,
-} from './errors.js';
+import { InvalidHashError, InvalidPrivateKeyError } from './errors.js';
 import type { SignRequest, Signer } from './signer.js';
 
+/**
+ * Generic raw-key ed25519 signer (RFC 8032): a 32-byte private key plus the
+ * address it answers for.
+ *
+ * There is intentionally no mnemonic constructor here: a Cardano address
+ * derived per CIP-1852 binds to a BIP32-Ed25519 extended key, which a raw
+ * ed25519 signer cannot reproduce — use `CardanoSigner.fromMnemonic` for
+ * mnemonic-based signing.
+ */
 export class Ed25519Signer implements Signer {
   readonly #address: string;
   readonly #privateKey: Uint8Array;
@@ -30,16 +34,6 @@ export class Ed25519Signer implements Signer {
       throw InvalidPrivateKeyError.hexDecode(err);
     }
     return new Ed25519Signer(address, keyBytes);
-  }
-
-  static fromMnemonic(address: string, phrase: string): Ed25519Signer {
-    let seed: Uint8Array;
-    try {
-      seed = mnemonicToSeedSync(phrase);
-    } catch (err) {
-      throw new InvalidMnemonicError(err);
-    }
-    return new Ed25519Signer(address, seed.slice(0, 32));
   }
 
   address(): string {

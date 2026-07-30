@@ -1,10 +1,6 @@
 import { ed25519 } from '@noble/curves/ed25519';
 import { Ed25519Signer } from './ed25519.js';
-import {
-  InvalidHashError,
-  InvalidPrivateKeyError,
-  InvalidMnemonicError,
-} from './errors.js';
+import { InvalidHashError, InvalidPrivateKeyError } from './errors.js';
 import { bytesToHex, hexToBytes } from '../core/bytes.js';
 
 const TEST_KEY_HEX = '9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60';
@@ -72,9 +68,12 @@ describe('Ed25519Signer', () => {
     expect(result).toBeInstanceOf(Promise);
   });
 
-  test('fromMnemonic rejects invalid phrase', () => {
-    expect(() => Ed25519Signer.fromMnemonic(TEST_ADDRESS, 'invalid words here')).toThrow(
-      InvalidMnemonicError,
-    );
+  test('has no mnemonic constructor (CardanoSigner owns mnemonic derivation)', () => {
+    // A raw ed25519 signer cannot reproduce a CIP-1852 key, so a mnemonic
+    // constructor on this class can only produce witnesses that fail to
+    // satisfy the address's payment credential.
+    expect(
+      (Ed25519Signer as unknown as Record<string, unknown>).fromMnemonic,
+    ).toBeUndefined();
   });
 });
