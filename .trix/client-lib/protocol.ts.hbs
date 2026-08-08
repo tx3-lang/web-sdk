@@ -8,6 +8,7 @@ import {
     Tx3ClientBuilder,
     type TxBuilder,
 } from "tx3-sdk";
+import { paramsFromSchema, type JsonSchema } from "tx3-sdk/tii";
 import type { ClientOptions } from "tx3-sdk/trp";
 
 /** Protocol identity, embedded from the TII at codegen time. */
@@ -34,6 +35,20 @@ export const {{constantCase @key}}_TIR = {
     encoding: "{{tir.encoding}}",
     version: "{{tir.version}}",
 } as const satisfies TirEnvelope;
+
+{{/each}}
+/**
+ * The protocol's `components.schemas` table, embedded verbatim from the TII.
+ * Resolves `#/components/schemas/<Name>` refs inside params schemas.
+ */
+const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {{#if tii.components.schemas}}{{{json tii.components.schemas}}}{{else}}{}{{/if}};
+
+{{#each tii.transactions}}
+/**
+ * Embedded params JSON schema for the `{{@key}}` transaction. Drives
+ * type-directed argument encoding into the TRP wire form at resolve time.
+ */
+const {{constantCase @key}}_PARAMS_SCHEMA: JsonSchema = {{{json params}}};
 
 {{/each}}
 {{#if tii.components.schemas}}
@@ -87,7 +102,10 @@ export class Client {
 {{/if}}
 
         this.#inner = Tx3ClientBuilder.fromParts(transactions, profiles, [])
-            .trp(options){{#if tii.profiles}}
+            .trp(options)
+{{#each tii.transactions}}
+            .withTxParams("{{@key}}", paramsFromSchema({{constantCase @key}}_PARAMS_SCHEMA, COMPONENT_SCHEMAS))
+{{/each}}{{#if tii.profiles}}
             .withProfile(profile){{/if}}
             .build();
     }

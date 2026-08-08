@@ -1,4 +1,5 @@
 import type { ArgMap, TirEnvelope } from '../core/index.js';
+import type { ParamMap } from '../tii/paramType.js';
 import type { Protocol } from '../tii/protocol.js';
 import { UnknownProfileError } from '../tii/errors.js';
 import { TrpClient, type ClientOptions } from '../trp/client.js';
@@ -32,6 +33,7 @@ import type { Profile } from './profile.js';
  */
 export class Tx3ClientBuilder {
   readonly #transactions: Map<string, TirEnvelope>;
+  readonly #txParams: Map<string, ParamMap> = new Map();
   readonly #profiles: Map<string, Profile>;
   readonly #knownParties: Set<string>;
 
@@ -104,12 +106,31 @@ export class Tx3ClientBuilder {
       knownParties.add(partyName.toLowerCase());
     }
 
-    return new Tx3ClientBuilder(transactions, profiles, knownParties);
+    const builder = new Tx3ClientBuilder(transactions, profiles, knownParties);
+    for (const name of Object.keys(txs)) {
+      builder.withTxParams(name, protocol.txParams(name));
+    }
+    return builder;
   }
 
   /** Sets the full TRP client options. */
   trp(options: ClientOptions): this {
     this.#trpOptions = { ...options };
+    return this;
+  }
+
+  /**
+   * Attaches the parameter-type map for a transaction, enabling type-directed
+   * argument encoding into the TRP `TaggedArg` wire form at resolve time.
+   *
+   * `Protocol.client()` populates this automatically for every declared
+   * transaction. Codegen-generated bindings call it with a map built from
+   * their embedded params schema via `paramsFromSchema`. A transaction
+   * without a map sends its arguments unencoded, leaving coercion to the
+   * resolver.
+   */
+  withTxParams(tx: string, params: ParamMap): this {
+    this.#txParams.set(tx, new Map(params));
     return this;
   }
 
@@ -213,6 +234,7 @@ export class Tx3ClientBuilder {
 
     return Tx3Client._fromBuilder(
       this.#transactions,
+      this.#txParams,
       this.#knownParties,
       trp,
       boundParties,
