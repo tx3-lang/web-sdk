@@ -2,12 +2,12 @@
 #
 # CI artifact — not part of the SDK.
 #
-# Renders the .trix/client-lib codegen plugin against the shared transfer
+# Renders tx3c's built-in `ts-client` template against the shared transfer
 # fixture and verifies the result the way a consumer would: the rendered module
 # is type-checked in a throwaway project with the published `tx3-sdk` installed
 # from npm — no path overrides into the SDK source tree.
 #
-# Requires `tx3c` and `npm` on PATH.
+# Requires `tx3c` (0.24.0 or later, which ships the built-in templates) and `npm` on PATH.
 # Last verified against fleet v0.12.0 (unified Tx3ClientBuilder).
 set -euo pipefail
 
@@ -17,7 +17,7 @@ trap 'rm -rf "$gen"' EXIT
 
 tx3c codegen \
   --tii "$repo_root/sdk/tests/fixtures/transfer.tii" \
-  --template "$repo_root/.trix/client-lib" \
+  --template ts-client \
   --output "$gen"
 
 test -f "$gen/protocol.ts" || { echo "missing generated file: protocol.ts"; exit 1; }
